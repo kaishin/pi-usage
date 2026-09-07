@@ -1,6 +1,6 @@
 {
 	"name": "@kaishin/pi-usage",
-	"version": "0.1.0",
+	"version": "1.0.0",
 	"description": "Pi extension that surfaces per-provider token-usage and quota status in the footer, plus a /usage command and dashboard. MiniMax-first.",
 	"type": "module",
 	"main": "./src/index.ts",
