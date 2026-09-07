@@ -14,7 +14,7 @@ tags: [overview, scope]
 1. **The footer**, via `ctx.ui.setFooter` — a single short segment appended to the existing TUI status line.
 2. **A `/usage` command** — prints the same windows in a multi-line notification.
 
-For v1.0.0 the only registered provider is `minimax` (the [MiniMax](https://MiniMax.io) Token Plan). Adding another provider is a one-file drop-in; see [Architecture](architecture.md).
+For v1.1.0 the only registered provider is `minimax` (the [MiniMax](https://MiniMax.io) Token Plan). Adding another provider is a one-file drop-in; see [Architecture](architecture.md).
 
 # What it deliberately does not do
 

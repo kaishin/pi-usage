@@ -13,6 +13,7 @@ tags: [architecture, code]
 src/
 ├── index.ts                 # Pi extension entry, registers hooks + commands
 ├── footer.ts                # renderUsageSegment(): short footer text
+├── config.ts                # configLoader(): reads ~/.pi/agent/extensions/usage.json
 └── providers/
     ├── types.ts             # Provider, QuotaWindow, ProviderFetchOutcome
     ├── index.ts             # buildProviderFor(): registry + auth resolver
@@ -56,13 +57,28 @@ The extension writes the segment via `ctx.ui.setFooter(segment, 1)` — priority
 
 # Lifecycle
 
-| Hook / command | Where | Purpose |
-|---|---|---|
-| `session_start` | `index.ts` | Fetch initial snapshot, write footer |
-| `/usage` | `index.ts` | Force-refresh and print all windows |
-| `/minimax:usage` | `index.ts` | Force-refresh the MiniMax provider specifically |
+| Hook / command | Where | Purpose | Gated by |
+|---|---|---|---|
+| `session_start` | `index.ts` | Fetch initial snapshot, write footer | `usageStatus` |
+| `/usage` | `index.ts` | Force-refresh and print all windows for the active provider | `usageCommand` |
+| `/minimax:usage` | `index.ts` | Force-refresh the MiniMax provider specifically | `providerCommands` |
+| `/usage:settings` | `index.ts` | Print the resolved config (read-only) | — |
 
 Snapshots are cached per-provider for 60 seconds (`CACHE_TTL_MS`). The cache lives in module scope and is dropped on extension reload.
+
+# Configuration
+
+The extension reads `~/.pi/agent/extensions/usage.json` on every command invocation and on `session_start`. The file is intended to be rcm-tracked (`~/.dotfiles/tag-pi/pi/agent/extensions/usage.json`). Schema mirrors what `@latentminds/pi-quotas` exposed under `quotas.json` for one-file migration:
+
+| Field | Default | Effect |
+|---|---|---|
+| `usageCommand` | `true` | Toggle `/usage` |
+| `providerCommands` | `true` | Toggle `/minimax:usage` |
+| `usageStatus` | `true` | Toggle the footer status segment |
+| `quotaWarnings` | `true` | Toggle projected-usage warning notifications (currently a no-op; reserved) |
+| `deferToSynthetic` | `true` | Suppress our footer when another extension reports the same data (reserved) |
+
+Missing fields fall back to defaults. Missing or malformed JSON is treated as \"all defaults\", so the extension runs out of the box and only deliberate edits opt features out.
 
 # Auth
 
