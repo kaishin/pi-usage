@@ -1,0 +1,53 @@
+{
+	"name": "@kaishin/pi-usage",
+	"version": "0.1.0",
+	"description": "Pi extension that surfaces per-provider token-usage and quota status in the footer, plus a /usage command and dashboard. MiniMax-first.",
+	"type": "module",
+	"main": "./src/index.ts",
+	"types": "./src/index.ts",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"pi": {
+		"extensions": ["./src/index.ts"]
+	},
+	"files": [
+		"src",
+		"README.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"test": "vitest --run",
+		"check": "tsc --noEmit",
+		"lint": "eslint src"
+	},
+	"dependencies": {
+		"@earendil-works/pi-tui": "^0.85.1"
+	},
+	"devDependencies": {
+		"@earendil-works/pi-coding-agent": "^0.85.1",
+		"@types/node": "22.19.19",
+		"typescript": "5.9.3",
+		"vitest": "4.1.9"
+	},
+	"keywords": [
+		"pi",
+		"pi-extension",
+		"pi-package",
+		"usage",
+		"quota",
+		"footer",
+		"minimax",
+		"coding-plan"
+	],
+	"author": "Reda Lemeden",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/kaishin/pi-usage.git"
+	},
+	"bugs": {
+		"url": "https://github.com/kaishin/pi-usage/issues"
+	},
+	"homepage": "https://github.com/kaishin/pi-usage#readme"
+}
