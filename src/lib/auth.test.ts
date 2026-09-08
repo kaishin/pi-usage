@@ -6,8 +6,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { AuthStorage } from "@mariozechner/pi-coding-agent";
-import { quotaAuthStorage } from "./auth.js";
+import { quotaAuthStorage, type AuthStorage } from "./auth.js";
 
 const tempDirectories: string[] = [];
 
@@ -29,7 +28,7 @@ describe("quotaAuthStorage", () => {
   });
 
   it("adapts newer registries without discarding stored OAuth metadata", async () => {
-    const agentDir = mkdtempSync(join(tmpdir(), "pi-quotas-auth-"));
+    const agentDir = mkdtempSync(join(tmpdir(), "pi-usage-auth-"));
     tempDirectories.push(agentDir);
     vi.stubEnv("PI_CODING_AGENT_DIR", agentDir);
     writeFileSync(

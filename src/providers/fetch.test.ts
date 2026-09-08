@@ -1,5 +1,5 @@
-import { AuthStorage } from "@mariozechner/pi-coding-agent";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { AuthStorage, inMemoryAuthStorage } from "../lib/auth.js";
 import {
   fetchAnthropicQuotasWithToken,
   fetchCodexQuotasWithToken,
@@ -156,7 +156,7 @@ describe("fetchGitHubCopilotQuotasWithToken", () => {
   });
 
   it("uses the stored GitHub OAuth refresh token for Pi 0.74 Copilot quota checks", async () => {
-    const auth = AuthStorage.inMemory({
+    const auth = inMemoryAuthStorage({
       "github-copilot": {
         type: "oauth",
         refresh: "ghu-refresh-token",

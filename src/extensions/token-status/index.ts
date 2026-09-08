@@ -2,17 +2,17 @@ import type {
   ExtensionAPI,
   ExtensionContext,
   ThemeColor,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
-  QUOTAS_CONFIG_UPDATED_EVENT,
-  QUOTAS_EXTENSIONS_REGISTER_EVENT,
-  QUOTAS_EXTENSIONS_REQUEST_EVENT,
-  type QuotasConfigUpdatedPayload,
+  USAGE_CONFIG_UPDATED_EVENT,
+  USAGE_EXTENSIONS_REGISTER_EVENT,
+  USAGE_EXTENSIONS_REQUEST_EVENT,
+  type UsageConfigUpdatedPayload,
   configLoader,
 } from "../../config.js";
 import { aggregateAllSessions, formatCost } from "../../lib/session-tokens.js";
 
-const EXTENSION_ID = "pi-quotas-token-status";
+const EXTENSION_ID = "pi-usage-token-status";
 const REFRESH_INTERVAL_MS = 60_000;
 
 /** Go tier limits (approximate, from docs) */
@@ -181,8 +181,8 @@ export default async function (pi: ExtensionAPI) {
     });
   }
 
-  pi.events.on(QUOTAS_CONFIG_UPDATED_EVENT, (data: unknown) => {
-    const config = (data as QuotasConfigUpdatedPayload).config;
+  pi.events.on(USAGE_CONFIG_UPDATED_EVENT, (data: unknown) => {
+    const config = (data as UsageConfigUpdatedPayload).config;
     enabled = config.tokenStatus;
     if (!enabled) {
       refresher.stop(currentContext);
@@ -231,9 +231,9 @@ export default async function (pi: ExtensionAPI) {
     refresher.stop(ctx);
   });
 
-  pi.events.on(QUOTAS_EXTENSIONS_REQUEST_EVENT, () => {
+  pi.events.on(USAGE_EXTENSIONS_REQUEST_EVENT, () => {
     if (configLoader.getConfig().tokenStatus) {
-      pi.events.emit(QUOTAS_EXTENSIONS_REGISTER_EVENT, {
+      pi.events.emit(USAGE_EXTENSIONS_REGISTER_EVENT, {
         feature: "tokenStatus",
       });
     }

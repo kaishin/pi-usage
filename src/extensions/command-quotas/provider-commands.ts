@@ -13,68 +13,68 @@ export function getProviderCommandInfo(
     case "anthropic":
       return {
         provider,
-        commandName: "anthropic:quotas",
-        title: "Anthropic Quotas",
+        commandName: "anthropic:usage",
+        title: "Anthropic Usage",
       };
     case "openai-codex":
       return {
         provider,
-        commandName: "codex:quotas",
-        title: "OpenAI Codex Quotas",
+        commandName: "codex:usage",
+        title: "OpenAI Codex Usage",
       };
     case "github-copilot":
       return {
         provider,
-        commandName: "github:quotas",
-        title: "GitHub Copilot Quotas",
+        commandName: "github:usage",
+        title: "GitHub Copilot Usage",
       };
     case "openrouter":
       return {
         provider,
-        commandName: "openrouter:quotas",
-        title: "OpenRouter Quotas",
+        commandName: "openrouter:usage",
+        title: "OpenRouter Usage",
       };
     case "synthetic":
       return {
         provider,
-        commandName: "synthetic:quotas",
-        title: "Synthetic Quotas",
+        commandName: "synthetic:usage",
+        title: "Synthetic Usage",
       };
     case "xai":
       return {
         provider,
-        commandName: "grok:quotas",
-        title: "Grok Quotas",
+        commandName: "grok:usage",
+        title: "Grok Usage",
       };
     case "zai":
       return {
         provider,
-        commandName: "zai:quotas",
-        title: "Z.ai Quotas",
+        commandName: "zai:usage",
+        title: "Z.ai Usage",
       };
     case "opencode-go":
       return {
         provider,
-        commandName: "opencode-go:quotas",
-        title: "OpenCode Go Quotas",
+        commandName: "opencode-go:usage",
+        title: "OpenCode Go Usage",
       };
     case "kimi-coding":
       return {
         provider,
-        commandName: "kimi:quotas",
-        title: "Kimi Code Quotas",
+        commandName: "kimi:usage",
+        title: "Kimi Code Usage",
       };
     case "ollama-cloud":
       return {
         provider,
-        commandName: "ollama:quotas",
-        title: "Ollama Cloud Quotas",
+        commandName: "ollama:usage",
+        title: "Ollama Cloud Usage",
       };
     case "minimax":
       return {
         provider,
-        commandName: "minimax:quotas",
-        title: "MiniMax Quotas",
+        commandName: "minimax:usage",
+        title: "MiniMax Usage",
       };
   }
 }

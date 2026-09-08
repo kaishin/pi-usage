@@ -1,12 +1,12 @@
 import type {
   ExtensionAPI,
   ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
-  QUOTAS_CONFIG_UPDATED_EVENT,
-  QUOTAS_EXTENSIONS_REGISTER_EVENT,
-  QUOTAS_EXTENSIONS_REQUEST_EVENT,
-  type QuotasConfigUpdatedPayload,
+  USAGE_CONFIG_UPDATED_EVENT,
+  USAGE_EXTENSIONS_REGISTER_EVENT,
+  USAGE_EXTENSIONS_REQUEST_EVENT,
+  type UsageConfigUpdatedPayload,
   configLoader,
 } from "../../config.js";
 import { quotaAuthStorage } from "../../lib/auth.js";
@@ -112,8 +112,8 @@ export default async function (pi: ExtensionAPI) {
     });
   }
 
-  pi.events.on(QUOTAS_CONFIG_UPDATED_EVENT, (data: unknown) => {
-    enabled = (data as QuotasConfigUpdatedPayload).config.quotaWarnings;
+  pi.events.on(USAGE_CONFIG_UPDATED_EVENT, (data: unknown) => {
+    enabled = (data as UsageConfigUpdatedPayload).config.quotaWarnings;
     if (!enabled) {
       clearAlertState();
       return;
@@ -147,9 +147,9 @@ export default async function (pi: ExtensionAPI) {
     clearAlertState();
   });
 
-  pi.events.on(QUOTAS_EXTENSIONS_REQUEST_EVENT, () => {
+  pi.events.on(USAGE_EXTENSIONS_REQUEST_EVENT, () => {
     if (configLoader.getConfig().quotaWarnings) {
-      pi.events.emit(QUOTAS_EXTENSIONS_REGISTER_EVENT, {
+      pi.events.emit(USAGE_EXTENSIONS_REGISTER_EVENT, {
         feature: "quotaWarnings",
       });
     }

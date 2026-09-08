@@ -1,5 +1,5 @@
-import type { AuthStorage } from "@mariozechner/pi-coding-agent";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { AuthStorage } from "./auth.js";
 import type { QuotasResult } from "../types/quotas.js";
 import { clearQuotaCache, fetchProviderQuotas } from "./quotas.js";
 

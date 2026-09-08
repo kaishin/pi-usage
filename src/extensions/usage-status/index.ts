@@ -1,12 +1,12 @@
 import type {
   ExtensionAPI,
   ExtensionContext,
-} from "@mariozechner/pi-coding-agent";
+} from "@earendil-works/pi-coding-agent";
 import {
-  QUOTAS_CONFIG_UPDATED_EVENT,
-  QUOTAS_EXTENSIONS_REGISTER_EVENT,
-  QUOTAS_EXTENSIONS_REQUEST_EVENT,
-  type QuotasConfigUpdatedPayload,
+  USAGE_CONFIG_UPDATED_EVENT,
+  USAGE_EXTENSIONS_REGISTER_EVENT,
+  USAGE_EXTENSIONS_REQUEST_EVENT,
+  type UsageConfigUpdatedPayload,
   configLoader,
 } from "../../config.js";
 
@@ -27,7 +27,7 @@ import {
 import type { QuotaWindow } from "../../types/quotas.js";
 import { formatWindowStatus, type WindowStatus } from "./format-status.js";
 
-const EXTENSION_ID = "pi-quotas-usage";
+const EXTENSION_ID = "pi-usage";
 const REFRESH_INTERVAL_MS = 60_000;
 const STALE_CONTEXT_MESSAGE = "This extension ctx is stale";
 
@@ -238,8 +238,8 @@ export default async function (pi: ExtensionAPI) {
     void refresher.refreshFor(ctx).catch(() => undefined);
   }
 
-  unsubscribeEventBusListeners.push(pi.events.on(QUOTAS_CONFIG_UPDATED_EVENT, (data: unknown) => {
-    const config = (data as QuotasConfigUpdatedPayload).config;
+  unsubscribeEventBusListeners.push(pi.events.on(USAGE_CONFIG_UPDATED_EVENT, (data: unknown) => {
+    const config = (data as UsageConfigUpdatedPayload).config;
     enabled = config.usageStatus;
     deferToSynthetic = config.deferToSynthetic;
     if (!enabled) {
@@ -306,9 +306,9 @@ export default async function (pi: ExtensionAPI) {
     }
   });
 
-  unsubscribeEventBusListeners.push(pi.events.on(QUOTAS_EXTENSIONS_REQUEST_EVENT, () => {
+  unsubscribeEventBusListeners.push(pi.events.on(USAGE_EXTENSIONS_REQUEST_EVENT, () => {
     if (configLoader.getConfig().usageStatus) {
-      pi.events.emit(QUOTAS_EXTENSIONS_REGISTER_EVENT, { feature: "usageStatus" });
+      pi.events.emit(USAGE_EXTENSIONS_REGISTER_EVENT, { feature: "usageStatus" });
     }
   }));
 }

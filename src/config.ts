@@ -2,41 +2,41 @@ import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import pkg from "../package.json" with { type: "json" };
 
-export type QuotasFeatureId =
-  | "quotasCommand"
+export type UsageFeatureId =
+  | "usageCommand"
   | "providerCommands"
   | "usageStatus"
   | "tokenStatus"
   | "quotaWarnings"
   | "deferToSynthetic";
 
-export const QUOTAS_EXTENSIONS_REQUEST_EVENT =
-  "quotas:extensions:request" as const;
-export const QUOTAS_EXTENSIONS_REGISTER_EVENT =
-  "quotas:extensions:register" as const;
-export const QUOTAS_CONFIG_UPDATED_EVENT = "quotas:config:updated" as const;
+export const USAGE_EXTENSIONS_REQUEST_EVENT =
+  "usage:extensions:request" as const;
+export const USAGE_EXTENSIONS_REGISTER_EVENT =
+  "usage:extensions:register" as const;
+export const USAGE_CONFIG_UPDATED_EVENT = "usage:config:updated" as const;
 
-export interface QuotasExtensionsRegisterPayload {
-  feature: QuotasFeatureId;
+export interface UsageExtensionsRegisterPayload {
+  feature: UsageFeatureId;
 }
 
-export interface QuotasConfig {
+export interface UsageConfig {
   configVersion?: string;
-  quotasCommand?: boolean;
+  usageCommand?: boolean;
   providerCommands?: boolean;
   usageStatus?: boolean;
   tokenStatus?: boolean;
   quotaWarnings?: boolean;
-  /** When true and pi-synthetic's usage footer is active, hide pi-quotas' Synthetic footer. */
+  /** When true and pi-synthetic's usage footer is active, hide pi-usage's Synthetic footer. */
   deferToSynthetic?: boolean;
 }
 
-export interface ResolvedQuotasConfig {
+export interface ResolvedUsageConfig {
   configVersion: string;
-  quotasCommand: boolean;
+  usageCommand: boolean;
   providerCommands: boolean;
   usageStatus: boolean;
   tokenStatus: boolean;
@@ -44,9 +44,9 @@ export interface ResolvedQuotasConfig {
   deferToSynthetic: boolean;
 }
 
-const DEFAULT_CONFIG: ResolvedQuotasConfig = {
+const DEFAULT_CONFIG: ResolvedUsageConfig = {
   configVersion: pkg.version,
-  quotasCommand: true,
+  usageCommand: true,
   providerCommands: true,
   usageStatus: true,
   tokenStatus: true,
@@ -68,22 +68,22 @@ export function clearPendingMigrationNotice(): void {
   pendingMigrationNotice = false;
 }
 
-class QuotasConfigStore {
-  private config: ResolvedQuotasConfig = DEFAULT_CONFIG;
+class UsageConfigStore {
+  private config: ResolvedUsageConfig = DEFAULT_CONFIG;
   private cwd = process.cwd();
 
   private globalPath(): string {
-    return join(homedir(), ".pi", "agent", "extensions", "quotas.json");
+    return join(homedir(), ".pi", "agent", "extensions", "usage.json");
   }
 
   private localPath(): string {
-    return join(this.cwd, ".pi", "quotas.json");
+    return join(this.cwd, ".pi", "usage.json");
   }
 
-  private resolve(input?: QuotasConfig): ResolvedQuotasConfig {
+  private resolve(input?: UsageConfig): ResolvedUsageConfig {
     return {
       configVersion: input?.configVersion ?? DEFAULT_CONFIG.configVersion,
-      quotasCommand: input?.quotasCommand ?? DEFAULT_CONFIG.quotasCommand,
+      usageCommand: input?.usageCommand ?? DEFAULT_CONFIG.usageCommand,
       providerCommands:
         input?.providerCommands ?? DEFAULT_CONFIG.providerCommands,
       usageStatus: input?.usageStatus ?? DEFAULT_CONFIG.usageStatus,
@@ -94,9 +94,9 @@ class QuotasConfigStore {
     };
   }
 
-  private async readConfig(path: string): Promise<QuotasConfig | undefined> {
+  private async readConfig(path: string): Promise<UsageConfig | undefined> {
     try {
-      const data = JSON.parse(await readFile(path, "utf8")) as QuotasConfig;
+      const data = JSON.parse(await readFile(path, "utf8")) as UsageConfig;
       return data;
     } catch {
       return undefined;
@@ -112,7 +112,7 @@ class QuotasConfigStore {
     this.config = this.resolve(merged);
   }
 
-  getConfig(): ResolvedQuotasConfig {
+  getConfig(): ResolvedUsageConfig {
     return this.config;
   }
 
@@ -121,7 +121,7 @@ class QuotasConfigStore {
     return existsSync(path);
   }
 
-  async save(scope: "global" | "local", config: QuotasConfig): Promise<void> {
+  async save(scope: "global" | "local", config: UsageConfig): Promise<void> {
     const path = scope === "global" ? this.globalPath() : this.localPath();
     await mkdir(dirname(path), { recursive: true });
     await writeFile(
@@ -133,9 +133,9 @@ class QuotasConfigStore {
   }
 }
 
-export const configLoader = new QuotasConfigStore();
+export const configLoader = new UsageConfigStore();
 
-export async function seedQuotasConfigIfMissing(): Promise<void> {
+export async function seedUsageConfigIfMissing(): Promise<void> {
   if (configLoader.hasConfig("global") || configLoader.hasConfig("local"))
     return;
   markMigrationNoticePending();
@@ -146,31 +146,31 @@ export async function seedQuotasConfigIfMissing(): Promise<void> {
   }
 }
 
-export interface QuotasConfigUpdatedPayload {
-  config: ResolvedQuotasConfig;
+export interface UsageConfigUpdatedPayload {
+  config: ResolvedUsageConfig;
 }
 
-export function emitQuotasConfigUpdated(pi: ExtensionAPI): void {
-  pi.events.emit(QUOTAS_CONFIG_UPDATED_EVENT, {
+export function emitUsageConfigUpdated(pi: ExtensionAPI): void {
+  pi.events.emit(USAGE_CONFIG_UPDATED_EVENT, {
     config: configLoader.getConfig(),
   });
 }
 
 const FEATURE_META: Array<{
-  id: QuotasFeatureId;
+  id: UsageFeatureId;
   label: string;
   description: string;
 }> = [
   {
-    id: "quotasCommand",
-    label: "Combined quotas command",
-    description: "Toggle the `/quotas` command",
+    id: "usageCommand",
+    label: "Combined usage command",
+    description: "Toggle the `/usage` command",
   },
   {
     id: "providerCommands",
-    label: "Provider quota commands",
+    label: "Provider usage commands",
     description:
-      "Toggle `/anthropic:quotas`, `/codex:quotas`, `/github:quotas`, `/openrouter:quotas`, and `/synthetic:quotas`",
+      "Toggle `/anthropic:usage`, `/codex:usage`, `/github:usage`, `/openrouter:usage`, and `/synthetic:usage`",
   },
   {
     id: "usageStatus",
@@ -191,15 +191,15 @@ const FEATURE_META: Array<{
     id: "deferToSynthetic",
     label: "Defer to Synthetic",
     description:
-      "When pi-synthetic is loaded, hide pi-quotas' Synthetic footer to avoid duplicates",
+      "When pi-synthetic is loaded, hide pi-usage's Synthetic footer to avoid duplicates",
   },
 ];
 
-export function registerQuotasSettings(
+export function registerUsageSettings(
   pi: ExtensionAPI,
-  getLoadedFeatures: () => Set<QuotasFeatureId>,
+  getLoadedFeatures: () => Set<UsageFeatureId>,
 ): void {
-  pi.registerCommand("quotas:settings", {
+  pi.registerCommand("usage:settings", {
     description: "Configure quota extension settings",
     handler: async (_args, ctx) => {
       await configLoader.load(ctx.cwd);
@@ -210,7 +210,7 @@ export function registerQuotasSettings(
       ]);
       if (!scopeChoice || scopeChoice === "cancel") return;
       const scope = scopeChoice as "global" | "local";
-      const draft: ResolvedQuotasConfig = { ...configLoader.getConfig() };
+      const draft: ResolvedUsageConfig = { ...configLoader.getConfig() };
 
       while (true) {
         const choices = FEATURE_META.map((feature) => {
@@ -222,11 +222,11 @@ export function registerQuotasSettings(
         });
         choices.push("Save and exit", "Cancel");
 
-        const selected = await ctx.ui.select("Quotas Settings", choices);
+        const selected = await ctx.ui.select("Usage Settings", choices);
         if (!selected || selected === "Cancel") return;
         if (selected === "Save and exit") {
           await configLoader.save(scope, draft);
-          emitQuotasConfigUpdated(pi);
+          emitUsageConfigUpdated(pi);
           ctx.ui.notify(
             "Quota settings saved. Run /reload to fully apply command visibility changes.",
             "info",

@@ -1,17 +1,17 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ExtensionAPI, ExtensionContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import usageStatusExtension from "./index.js";
 import { fetchProviderQuotas } from "../../lib/quotas.js";
 
 vi.mock("../../config.js", () => ({
-  QUOTAS_CONFIG_UPDATED_EVENT: "quotas:config:updated",
-  QUOTAS_EXTENSIONS_REGISTER_EVENT: "quotas:extensions:register",
-  QUOTAS_EXTENSIONS_REQUEST_EVENT: "quotas:extensions:request",
+  USAGE_CONFIG_UPDATED_EVENT: "usage:config:updated",
+  USAGE_EXTENSIONS_REGISTER_EVENT: "usage:extensions:register",
+  USAGE_EXTENSIONS_REQUEST_EVENT: "usage:extensions:request",
   configLoader: {
     load: vi.fn(async () => undefined),
     getConfig: vi.fn(() => ({
       configVersion: "test",
-      quotasCommand: true,
+      usageCommand: true,
       providerCommands: true,
       usageStatus: true,
       quotaWarnings: true,
@@ -137,7 +137,7 @@ describe("usage-status extension lifecycle", () => {
 
     expect(() => {
       emitBusEvent("synthetic:extensions:register", { feature: "usageStatus" });
-      emitBusEvent("quotas:config:updated", {
+      emitBusEvent("usage:config:updated", {
         config: { usageStatus: true, deferToSynthetic: true },
       });
     }).not.toThrow();
@@ -148,15 +148,15 @@ describe("usage-status extension lifecycle", () => {
     const { ctx } = createContext("unsupported-provider");
 
     await usageStatusExtension(pi);
-    expect(listenerCount("quotas:config:updated")).toBe(1);
+    expect(listenerCount("usage:config:updated")).toBe(1);
     expect(listenerCount("synthetic:extensions:register")).toBe(1);
-    expect(listenerCount("quotas:extensions:request")).toBe(1);
+    expect(listenerCount("usage:extensions:request")).toBe(1);
 
     await emitExtensionEvent("session_shutdown", ctx);
 
-    expect(listenerCount("quotas:config:updated")).toBe(0);
+    expect(listenerCount("usage:config:updated")).toBe(0);
     expect(listenerCount("synthetic:extensions:register")).toBe(0);
-    expect(listenerCount("quotas:extensions:request")).toBe(0);
+    expect(listenerCount("usage:extensions:request")).toBe(0);
   });
 
   it("clears the footer silently for not_applicable credentials instead of warning", async () => {

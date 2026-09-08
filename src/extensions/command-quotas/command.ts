@@ -1,7 +1,7 @@
-import type { ExtensionAPI, ExtensionCommandContext } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import {
-  QUOTAS_EXTENSIONS_REGISTER_EVENT,
-  QUOTAS_EXTENSIONS_REQUEST_EVENT,
+  USAGE_EXTENSIONS_REGISTER_EVENT,
+  USAGE_EXTENSIONS_REQUEST_EVENT,
   configLoader,
 } from "../../config.js";
 import { quotaAuthStorage } from "../../lib/auth.js";
@@ -87,12 +87,12 @@ function formatSnapshotsForNotify(snapshots: Snapshot[]): string {
   return lines.join("\n") || "No quota data available";
 }
 
-export function registerQuotasCommands(pi: ExtensionAPI): void {
-  pi.registerCommand("quotas", {
-    description: "Display remaining quotas for all supported providers",
+export function registerUsageCommands(pi: ExtensionAPI): void {
+  pi.registerCommand("usage", {
+    description: "Display remaining usage for all supported providers",
     handler: async (_args, ctx) => {
-      if (!configLoader.getConfig().quotasCommand) {
-        ctx.ui.notify("/quotas is disabled. Re-enable it in /quotas:settings.", "warning");
+      if (!configLoader.getConfig().usageCommand) {
+        ctx.ui.notify("/usage is disabled. Re-enable it in /usage:settings.", "warning");
         return;
       }
       await openQuotaView(
@@ -115,7 +115,7 @@ export function registerQuotasCommands(pi: ExtensionAPI): void {
       description: `Display remaining ${info.title.toLowerCase()}`,
       handler: async (_args, ctx) => {
         if (!configLoader.getConfig().providerCommands) {
-          ctx.ui.notify(`${info.commandName} is disabled. Re-enable it in /quotas:settings.`, "warning");
+          ctx.ui.notify(`${info.commandName} is disabled. Re-enable it in /usage:settings.`, "warning");
           return;
         }
         await openQuotaView(
@@ -137,16 +137,16 @@ export default async function (pi: ExtensionAPI) {
   await configLoader.load();
 
   const config = configLoader.getConfig();
-  if (config.quotasCommand || config.providerCommands) {
-    registerQuotasCommands(pi);
+  if (config.usageCommand || config.providerCommands) {
+    registerUsageCommands(pi);
   }
 
-  pi.events.on(QUOTAS_EXTENSIONS_REQUEST_EVENT, () => {
-    if (configLoader.getConfig().quotasCommand) {
-      pi.events.emit(QUOTAS_EXTENSIONS_REGISTER_EVENT, { feature: "quotasCommand" });
+  pi.events.on(USAGE_EXTENSIONS_REQUEST_EVENT, () => {
+    if (configLoader.getConfig().usageCommand) {
+      pi.events.emit(USAGE_EXTENSIONS_REGISTER_EVENT, { feature: "usageCommand" });
     }
     if (configLoader.getConfig().providerCommands) {
-      pi.events.emit(QUOTAS_EXTENSIONS_REGISTER_EVENT, { feature: "providerCommands" });
+      pi.events.emit(USAGE_EXTENSIONS_REGISTER_EVENT, { feature: "providerCommands" });
     }
   });
 }

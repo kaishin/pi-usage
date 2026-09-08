@@ -1,6 +1,6 @@
-import { AuthStorage } from "@mariozechner/pi-coding-agent";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { registerQuotasCommands } from "./command.js";
+import { inMemoryAuthStorage } from "../../lib/auth.js";
+import { registerUsageCommands } from "./command.js";
 
 // Provider credentials can leak in from the host environment (pi resolves
 // API keys from env vars, and the Synthetic provider reads
@@ -29,7 +29,7 @@ afterEach(() => {
 
 function registeredCommands() {
   const commands = new Map<string, any>();
-  registerQuotasCommands({
+  registerUsageCommands({
     registerCommand(name: string, command: any) {
       commands.set(name, command);
     },
@@ -39,7 +39,7 @@ function registeredCommands() {
 
 function contextWithoutCredentials(notify: ReturnType<typeof vi.fn>) {
   return {
-    modelRegistry: { authStorage: AuthStorage.inMemory({}) },
+    modelRegistry: { authStorage: inMemoryAuthStorage() },
     ui: {
       custom: async () => undefined,
       notify,
@@ -52,7 +52,7 @@ describe("quota command visibility", () => {
     const commands = registeredCommands();
     const notify = vi.fn();
 
-    await commands.get("quotas").handler(
+    await commands.get("usage").handler(
       "",
       contextWithoutCredentials(notify),
     );
@@ -64,7 +64,7 @@ describe("quota command visibility", () => {
     const commands = registeredCommands();
     const notify = vi.fn();
 
-    await commands.get("anthropic:quotas").handler(
+    await commands.get("anthropic:usage").handler(
       "",
       contextWithoutCredentials(notify),
     );

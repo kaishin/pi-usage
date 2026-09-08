@@ -1,7 +1,7 @@
-import type { Theme } from "@mariozechner/pi-coding-agent";
-import { DynamicBorder } from "@mariozechner/pi-coding-agent";
-import type { Component } from "@mariozechner/pi-tui";
-import { Loader, matchesKey, truncateToWidth } from "@mariozechner/pi-tui";
+import type { Theme } from "@earendil-works/pi-coding-agent";
+import { DynamicBorder } from "@earendil-works/pi-coding-agent";
+import type { Component } from "@earendil-works/pi-tui";
+import { Loader, matchesKey, truncateToWidth } from "@earendil-works/pi-tui";
 import pkg from "../../../../package.json" with { type: "json" };
 import { PROVIDER_LABELS } from "../../../lib/quotas.js";
 import type { QuotasResult, SupportedQuotaProvider } from "../../../types/quotas.js";
@@ -74,7 +74,7 @@ export class QuotasComponent implements Component {
       this.tui,
       (s: string) => this.theme.fg("accent", s),
       (s: string) => this.theme.fg("muted", s),
-      "Fetching quotas...",
+      "Fetching usage...",
     );
   }
 
@@ -119,7 +119,7 @@ export class QuotasComponent implements Component {
     }
 
     lines.push("");
-    lines.push(this.theme.fg("dim", `  pi-quotas v${pkg.version}  ·  r to refresh  q/Esc to close`));
+    lines.push(this.theme.fg("dim", `  pi-usage v${pkg.version}  ·  r to refresh  q/Esc to close`));
     lines.push(...border.render(width));
     return lines;
   }

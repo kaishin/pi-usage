@@ -1,28 +1,28 @@
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { visibleWidth, wrapTextWithAnsi } from "@mariozechner/pi-tui";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
 import {
   clearPendingMigrationNotice,
-  emitQuotasConfigUpdated,
+  emitUsageConfigUpdated,
   hasPendingMigrationNotice,
-  QUOTAS_EXTENSIONS_REGISTER_EVENT,
-  QUOTAS_EXTENSIONS_REQUEST_EVENT,
-  registerQuotasSettings,
-  type QuotasExtensionsRegisterPayload,
-  type QuotasFeatureId,
+  USAGE_EXTENSIONS_REGISTER_EVENT,
+  USAGE_EXTENSIONS_REQUEST_EVENT,
+  registerUsageSettings,
+  type UsageExtensionsRegisterPayload,
+  type UsageFeatureId,
   configLoader,
-  seedQuotasConfigIfMissing,
+  seedUsageConfigIfMissing,
 } from "../../config.js";
 
-const NOTICE_TYPE = "quotas:migration-notice";
-const NOTICE_TITLE = "pi-quotas";
+const NOTICE_TYPE = "usage:migration-notice";
+const NOTICE_TITLE = "pi-usage";
 const NOTICE_CONTENT = [
-  "Optional features available in `pi-quotas`:",
-  "- Combined quotas command",
-  "- Provider-specific quota commands",
+  "Optional features available in `pi-usage`:",
+  "- Combined usage command",
+  "- Provider-specific usage commands",
   "- Usage footer status",
   "- Quota warnings",
   "",
-  "Use `/quotas:settings` to enable or disable them.",
+  "Use `/usage:settings` to enable or disable them.",
 ].join("\n");
 
 function wrapInRoundedBorder(
@@ -52,7 +52,7 @@ function highlightInlineCode(text: string, colorFn: (text: string) => string): s
 
 export default async function (pi: ExtensionAPI) {
   await configLoader.load();
-  await seedQuotasConfigIfMissing();
+  await seedUsageConfigIfMissing();
 
   pi.registerMessageRenderer(NOTICE_TYPE, (message, _options, theme) => {
     const rawContent = typeof message.content === "string" ? message.content : NOTICE_CONTENT;
@@ -72,18 +72,18 @@ export default async function (pi: ExtensionAPI) {
     };
   });
 
-  const loadedFeatures = new Set<QuotasFeatureId>();
-  pi.events.on(QUOTAS_EXTENSIONS_REGISTER_EVENT, (data: unknown) => {
-    const { feature } = data as QuotasExtensionsRegisterPayload;
+  const loadedFeatures = new Set<UsageFeatureId>();
+  pi.events.on(USAGE_EXTENSIONS_REGISTER_EVENT, (data: unknown) => {
+    const { feature } = data as UsageExtensionsRegisterPayload;
     loadedFeatures.add(feature);
   });
 
-  registerQuotasSettings(pi, () => loadedFeatures);
+  registerUsageSettings(pi, () => loadedFeatures);
 
   pi.on("session_start", async () => {
     loadedFeatures.clear();
-    pi.events.emit(QUOTAS_EXTENSIONS_REQUEST_EVENT, undefined);
-    emitQuotasConfigUpdated(pi);
+    pi.events.emit(USAGE_EXTENSIONS_REQUEST_EVENT, undefined);
+    emitUsageConfigUpdated(pi);
     if (hasPendingMigrationNotice()) {
       clearPendingMigrationNotice();
       pi.sendMessage(

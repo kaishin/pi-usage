@@ -5,75 +5,75 @@ import {
 } from "./provider-commands.js";
 
 describe("getProviderCommandInfo", () => {
-  it("maps anthropic to anthropic:quotas", () => {
+  it("maps anthropic to anthropic:usage", () => {
     const info = getProviderCommandInfo("anthropic");
     expect(info).toMatchObject<Partial<ProviderCommandInfo>>({
       provider: "anthropic",
-      commandName: "anthropic:quotas",
-      title: "Anthropic Quotas",
+      commandName: "anthropic:usage",
+      title: "Anthropic Usage",
     });
   });
 
-  it("maps openai-codex to codex:quotas", () => {
+  it("maps openai-codex to codex:usage", () => {
     const info = getProviderCommandInfo("openai-codex");
     expect(info).toMatchObject<Partial<ProviderCommandInfo>>({
       provider: "openai-codex",
-      commandName: "codex:quotas",
-      title: "OpenAI Codex Quotas",
+      commandName: "codex:usage",
+      title: "OpenAI Codex Usage",
     });
   });
 
-  it("maps github-copilot to github:quotas", () => {
+  it("maps github-copilot to github:usage", () => {
     const info = getProviderCommandInfo("github-copilot");
     expect(info).toMatchObject<Partial<ProviderCommandInfo>>({
       provider: "github-copilot",
-      commandName: "github:quotas",
-      title: "GitHub Copilot Quotas",
+      commandName: "github:usage",
+      title: "GitHub Copilot Usage",
     });
   });
 
-  it("maps openrouter to openrouter:quotas", () => {
+  it("maps openrouter to openrouter:usage", () => {
     const info = getProviderCommandInfo("openrouter");
     expect(info).toMatchObject<Partial<ProviderCommandInfo>>({
       provider: "openrouter",
-      commandName: "openrouter:quotas",
-      title: "OpenRouter Quotas",
+      commandName: "openrouter:usage",
+      title: "OpenRouter Usage",
     });
   });
 
-  it("maps xai to grok:quotas", () => {
+  it("maps xai to grok:usage", () => {
     const info = getProviderCommandInfo("xai");
     expect(info).toMatchObject<Partial<ProviderCommandInfo>>({
       provider: "xai",
-      commandName: "grok:quotas",
-      title: "Grok Quotas",
+      commandName: "grok:usage",
+      title: "Grok Usage",
     });
   });
 
-  it("maps zai to zai:quotas", () => {
+  it("maps zai to zai:usage", () => {
     const info = getProviderCommandInfo("zai");
     expect(info).toMatchObject<Partial<ProviderCommandInfo>>({
       provider: "zai",
-      commandName: "zai:quotas",
-      title: "Z.ai Quotas",
+      commandName: "zai:usage",
+      title: "Z.ai Usage",
     });
   });
 
-  it("maps kimi-coding to kimi:quotas", () => {
+  it("maps kimi-coding to kimi:usage", () => {
     const info = getProviderCommandInfo("kimi-coding");
     expect(info).toMatchObject<Partial<ProviderCommandInfo>>({
       provider: "kimi-coding",
-      commandName: "kimi:quotas",
-      title: "Kimi Code Quotas",
+      commandName: "kimi:usage",
+      title: "Kimi Code Usage",
     });
   });
 
-  it("maps minimax to minimax:quotas", () => {
+  it("maps minimax to minimax:usage", () => {
     const info = getProviderCommandInfo("minimax");
     expect(info).toMatchObject<Partial<ProviderCommandInfo>>({
       provider: "minimax",
-      commandName: "minimax:quotas",
-      title: "MiniMax Quotas",
+      commandName: "minimax:usage",
+      title: "MiniMax Usage",
     });
   });
 });

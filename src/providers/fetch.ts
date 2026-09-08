@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import type { AuthStorage } from "@mariozechner/pi-coding-agent";
+import type { AuthStorage } from "../lib/auth.js";
 import type { QuotasErrorKind, QuotasResult, SupportedQuotaProvider } from "../types/quotas.js";
 import {
   parseAnthropicUsage,
@@ -407,7 +407,7 @@ export async function fetchSyntheticQuotas(
     );
 
   const result = await fetchJson(
-    "https://api.synthetic.new/v2/quotas",
+    "https://api.synthetic.new/v2/usage",
     {
       headers: { Authorization: `Bearer ${apiKey}` },
     },

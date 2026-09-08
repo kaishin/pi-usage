@@ -1,22 +1,35 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  getAgentDir,
-  type AuthStorage,
-} from "@mariozechner/pi-coding-agent";
+import { getAgentDir } from "@earendil-works/pi-coding-agent";
+
+export interface AuthStorage {
+  get(provider: string): unknown;
+  getApiKey(provider: string): Promise<string | undefined>;
+}
+
+export type AuthStorageData = Record<string, unknown>;
+
+export function inMemoryAuthStorage(
+  data: AuthStorageData = {},
+): AuthStorage {
+  return {
+    get(provider: string): unknown {
+      return data[provider];
+    },
+    async getApiKey(provider: string): Promise<string | undefined> {
+      const credential = data[provider];
+      if (credential && typeof credential === "object") {
+        return (credential as { apiKey?: string }).apiKey;
+      }
+      return undefined;
+    },
+  };
+}
 
 type CompatibleModelRegistry = {
   authStorage?: AuthStorage;
   getApiKeyForProvider?: (provider: string) => Promise<string | undefined>;
-  getProviderAuth?: (provider: string) => Promise<
-    | {
-        auth?: {
-          apiKey?: string;
-          headers?: Record<string, string>;
-        };
-      }
-    | undefined
-  >;
+  getProviderAuth?: (provider: string) => Promise<any>;
 };
 
 function storedCredential(provider: string): unknown {
