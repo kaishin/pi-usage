@@ -16,6 +16,7 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
 	createUsageFooterComponent,
+	renderUsageDashboard,
 	renderUsageSegment,
 	type UsageFooterState,
 } from "./footer.js";
@@ -78,12 +79,7 @@ function formatWindows(
 	displayName: string,
 	outcome: Extract<ProviderFetchOutcome, { ok: true }>,
 ): string {
-	const lines = outcome.result.windows.map(
-		(w) =>
-			`  ${w.label}  ${Math.round(w.usedPercent)}%` +
-			`${w.limited ? "  Limited" : ""}`,
-	);
-	return `${displayName}\n${lines.join("\n")}`;
+	return renderUsageDashboard(displayName, outcome.result.windows);
 }
 
 export default function piUsage(pi: ExtensionAPI): void {

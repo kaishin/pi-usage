@@ -2,7 +2,7 @@
 
 Standalone [Pi](https://github.com/earendil-works/pi) extension that renders the active model's provider quota state in the footer and exposes a `/usage` command.
 
-v1.1.1 ships with **MiniMax** as the only registered provider. Adding more providers is a one-file drop-in — see [`okf/concepts/architecture.md`](okf/concepts/architecture.md).
+v1.1.2 ships with **MiniMax** as the only registered provider. Adding more providers is a one-file drop-in — see [`okf/concepts/architecture.md`](okf/concepts/architecture.md).
 
 ## What it renders
 

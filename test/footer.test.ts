@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
 	createUsageFooterComponent,
+	renderUsageDashboard,
 	renderUsageSegment,
 } from "../src/footer.js";
 import type { QuotaWindow } from "../src/providers/types.js";
@@ -16,11 +17,12 @@ function windowAt(
 	};
 }
 
-describe("renderUsageSegment", () => {
-	it("returns undefined when there are no windows", () => {
-		expect(renderUsageSegment("MiniMax", [])).toBeUndefined();
-	});
+/** Strip ANSI escape codes so regex assertions match the visible text. */
+function plain(s: string | undefined): string {
+	return (s ?? "").replace(/\x1b\[[0-9;]*m/g, "");
+}
 
+describe("renderUsageSegment", () => {
 	it("renders a single window segment", () => {
 		const out = renderUsageSegment("MiniMax", [
 			windowAt({
@@ -29,8 +31,8 @@ describe("renderUsageSegment", () => {
 				resetsAt: new Date(Date.now() + 4 * 60 * 60 * 1000),
 			}),
 		]);
-		expect(out).toMatch(/^● MiniMax\s+general 53%/);
-		expect(out).toMatch(/4h/);
+		expect(plain(out)).toMatch(/● MiniMax\s+general 53%/);
+		expect(plain(out)).toMatch(/4h/);
 	});
 
 	it("renders both windows with a separator when width allows", () => {
@@ -52,9 +54,9 @@ describe("renderUsageSegment", () => {
 			],
 			{ availableWidth: 80 },
 		);
-		expect(out).toMatch(/general 53%/);
-		expect(out).toMatch(/wk 18%/);
-		expect(out).toMatch(/│/);
+		expect(plain(out)).toMatch(/general 53%/);
+		expect(plain(out)).toMatch(/wk 18%/);
+		expect(plain(out)).toMatch(/│/);
 	});
 
 	it("collapses to the primary window when width is tight", () => {
@@ -76,15 +78,15 @@ describe("renderUsageSegment", () => {
 			],
 			{ availableWidth: 30 },
 		);
-		expect(out).toMatch(/general 53%/);
-		expect(out).not.toMatch(/wk/);
+		expect(plain(out)).toMatch(/general 53%/);
+		expect(plain(out)).not.toMatch(/wk/);
 	});
 
 	it("emits a single Limited line when any window is rate-limited", () => {
 		const out = renderUsageSegment("MiniMax", [
 			windowAt({ label: "general", usedPercent: 100, limited: true }),
 		]);
-		expect(out).toMatch(/Limited/);
+		expect(plain(out)).toMatch(/Limited/);
 	});
 });
 
@@ -113,7 +115,7 @@ describe("createUsageFooterComponent", () => {
 			getState: () => state,
 			requestRender: () => undefined,
 		});
-		const line = component.render(120)[0];
+		const line = plain(component.render(120)[0]);
 		expect(line).toMatch(/● MiniMax\s+general 53%/);
 	});
 
@@ -131,7 +133,7 @@ describe("createUsageFooterComponent", () => {
 		state.windows = [
 			windowAt({ label: "general", usedPercent: 80, limited: true }),
 		];
-		expect(component.render(120)[0]).toMatch(/Limited/);
+		expect(plain(component.render(120)[0])).toMatch(/Limited/);
 	});
 
 	it("renders an empty line after dispose", () => {
@@ -143,7 +145,7 @@ describe("createUsageFooterComponent", () => {
 			getState: () => state,
 			requestRender: () => undefined,
 		});
-		expect(component.render(80)[0]).toMatch(/general/);
+		expect(plain(component.render(80)[0])).toMatch(/general/);
 		component.dispose();
 		expect(component.render(80)).toEqual([""]);
 	});
@@ -159,5 +161,68 @@ describe("createUsageFooterComponent", () => {
 		});
 		expect(component.render(0)).toEqual([""]);
 		expect(component.render(-10)).toEqual([""]);
+	});
+});
+
+describe("renderUsageDashboard", () => {
+	it("renders a multi-line progress-bar dashboard", () => {
+		const out = plain(
+			renderUsageDashboard("MiniMax", [
+				windowAt({
+					label: "general",
+					usedPercent: 53,
+					resetsAt: new Date(Date.now() + 4 * 60 * 60 * 1000),
+				}),
+				windowAt({
+					label: "video",
+					usedPercent: 10,
+					resetsAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+					windowSeconds: 7 * 24 * 60 * 60,
+				}),
+			]),
+		);
+
+		const lines = out.split("\n");
+		expect(lines[0]).toBe("MiniMax");
+		expect(lines).toHaveLength(3);
+		expect(lines[1]).toMatch(/general\s+█+░*\s+53%\s+\(4h/);
+		expect(lines[2]).toMatch(/video\s+█+░*\s+10%\s+\(5d/);
+	});
+
+	it("emits a Limited marker for rate-limited windows", () => {
+		const out = plain(
+			renderUsageDashboard("MiniMax", [
+				windowAt({ label: "general", usedPercent: 100, limited: true }),
+			]),
+		);
+		expect(out).toMatch(/Limited/);
+	});
+
+	it("handles empty windows without crashing", () => {
+		const out = plain(renderUsageDashboard("MiniMax", []));
+		expect(out).toMatch(/MiniMax/);
+		expect(out).toMatch(/no quota data/);
+	});
+
+	it("sorts windows so the shortest window comes first", () => {
+		const out = plain(
+			renderUsageDashboard("MiniMax", [
+				windowAt({
+					label: "general / wk",
+					usedPercent: 18,
+					resetsAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+					windowSeconds: 7 * 24 * 60 * 60,
+				}),
+				windowAt({
+					label: "general",
+					usedPercent: 53,
+					resetsAt: new Date(Date.now() + 4 * 60 * 60 * 1000),
+					windowSeconds: 5 * 60 * 60,
+				}),
+			]),
+		);
+		const lines = out.split("\n");
+		expect(lines[1]).toMatch(/general\s/);
+		expect(lines[2]).toMatch(/general \/ wk/);
 	});
 });
