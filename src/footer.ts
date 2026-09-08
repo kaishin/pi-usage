@@ -1,18 +1,22 @@
 /**
  * Footer segment renderer for the active provider's quota state.
  *
- * Produces a short string like:
+ * Two exports:
  *
- *   ● MiniMax  general 53% (4h 12m) │ wk 18% (5d)
- *   ● MiniMax  general 100% Limited
+ *   - renderUsageSegment(): pure function, returns the rendered string
+ *     for the given provider + windows + width. Used by the /usage
+ *     command and reused inside the footer Component below.
+ *
+ *   - createUsageFooterComponent(): a pi-tui Component that wraps
+ *     renderUsageSegment so pi can drop it into the footer slot via
+ *     ctx.ui.setFooter((tui, theme, footerData) => Component).
  *
  * Width-responsive: collapses to a single window when the available
  * column count is tight.
  */
 
+import type { Component } from "@earendil-works/pi-tui";
 import type { QuotaWindow } from "./providers/index.js";
-
-const RESET_SOON_MS = 5 * 60 * 1000;
 
 function formatResetIn(resetsAt: Date): string {
 	const ms = resetsAt.getTime() - Date.now();
@@ -90,4 +94,43 @@ export function renderUsageSegment(
 		: `${secondary.label} ${fmtPercent(secondary.usedPercent)} (${formatResetIn(secondary.resetsAt)})`;
 
 	return `● ${displayName}  ${primaryPart} │ ${secondaryPart}`;
+}
+
+/** State read by the footer Component on each render. */
+export interface UsageFooterState {
+	displayName: string | undefined;
+	windows: QuotaWindow[] | undefined;
+}
+
+/**
+ * Build a pi-tui Component that renders the usage segment on each
+ * render(width) call. The extension owns the state object (mutates it
+ * after each fetch) and the requestRender callback (calls it after
+ * each mutation to schedule a re-render).
+ */
+export function createUsageFooterComponent(options: {
+	getState(): UsageFooterState;
+	requestRender(): void;
+}): Component & { dispose(): void } {
+	let disposed = false;
+
+	return {
+		render(width: number): string[] {
+			if (disposed) return [""];
+			const { displayName, windows } = options.getState();
+			if (!displayName || !windows || windows.length === 0) return [""];
+			if (width <= 0) return [""];
+			const segment = renderUsageSegment(displayName, windows, {
+				availableWidth: width,
+			});
+			return [segment ?? ""];
+		},
+		invalidate(): void {
+			// No cached layout — render() is cheap. The extension drives
+			// re-renders via the requestRender callback when state changes.
+		},
+		dispose(): void {
+			disposed = true;
+		},
+	};
 }

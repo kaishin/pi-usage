@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { renderUsageSegment } from "../src/footer.js";
+import {
+	createUsageFooterComponent,
+	renderUsageSegment,
+} from "../src/footer.js";
 import type { QuotaWindow } from "../src/providers/types.js";
 
 function windowAt(
@@ -82,5 +85,79 @@ describe("renderUsageSegment", () => {
 			windowAt({ label: "general", usedPercent: 100, limited: true }),
 		]);
 		expect(out).toMatch(/Limited/);
+	});
+});
+
+describe("createUsageFooterComponent", () => {
+	it("renders an empty line when state is uninitialized", () => {
+		const state = { displayName: undefined, windows: undefined };
+		const component = createUsageFooterComponent({
+			getState: () => state,
+			requestRender: () => undefined,
+		});
+		expect(component.render(80)).toEqual([""]);
+	});
+
+	it("renders the segment from the state on each render(width)", () => {
+		const state: { displayName: string | undefined; windows: QuotaWindow[] | undefined } = {
+			displayName: "MiniMax",
+			windows: [
+				windowAt({
+					label: "general",
+					usedPercent: 53,
+					resetsAt: new Date(Date.now() + 4 * 60 * 60 * 1000),
+				}),
+			],
+		};
+		const component = createUsageFooterComponent({
+			getState: () => state,
+			requestRender: () => undefined,
+		});
+		const line = component.render(120)[0];
+		expect(line).toMatch(/● MiniMax\s+general 53%/);
+	});
+
+	it("reflects subsequent state mutations without being recreated", () => {
+		const state: { displayName: string | undefined; windows: QuotaWindow[] | undefined } = {
+			displayName: "MiniMax",
+			windows: undefined,
+		};
+		const component = createUsageFooterComponent({
+			getState: () => state,
+			requestRender: () => undefined,
+		});
+		expect(component.render(120)).toEqual([""]);
+
+		state.windows = [
+			windowAt({ label: "general", usedPercent: 80, limited: true }),
+		];
+		expect(component.render(120)[0]).toMatch(/Limited/);
+	});
+
+	it("renders an empty line after dispose", () => {
+		const state = {
+			displayName: "MiniMax",
+			windows: [windowAt({ label: "general", usedPercent: 50 })],
+		};
+		const component = createUsageFooterComponent({
+			getState: () => state,
+			requestRender: () => undefined,
+		});
+		expect(component.render(80)[0]).toMatch(/general/);
+		component.dispose();
+		expect(component.render(80)).toEqual([""]);
+	});
+
+	it("treats width <= 0 as empty", () => {
+		const state = {
+			displayName: "MiniMax",
+			windows: [windowAt({ label: "general", usedPercent: 50 })],
+		};
+		const component = createUsageFooterComponent({
+			getState: () => state,
+			requestRender: () => undefined,
+		});
+		expect(component.render(0)).toEqual([""]);
+		expect(component.render(-10)).toEqual([""]);
 	});
 });

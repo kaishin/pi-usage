@@ -4,17 +4,21 @@
  * Responsibilities:
  *   - On session start, identify the active provider and fetch a usage
  *     snapshot.
- *   - Render the result in the footer via `ctx.ui.setFooter` (when
- *     `usageStatus` is enabled in `usage.json`).
- *   - Expose `/usage` (when `usageCommand` is enabled) and `/minimax:usage`
- *     (when `providerCommands` is enabled) slash commands.
+ *   - Render the result in the footer via ctx.ui.setFooter as a
+ *     pi-tui Component (when usageStatus is enabled in usage.json).
+ *   - Expose /usage (when usageCommand is enabled) and /minimax:usage
+ *     (when providerCommands is enabled) slash commands.
  *
- * The fetcher is cached per-provider for 60s to avoid hammering the API on
- * every keystroke.
+ * The fetcher is cached per-provider for 60s to avoid hammering the API
+ * on every keystroke.
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { renderUsageSegment } from "./footer.js";
+import {
+	createUsageFooterComponent,
+	renderUsageSegment,
+	type UsageFooterState,
+} from "./footer.js";
 import { configLoader } from "./config.js";
 import { buildProviderFor } from "./providers/index.js";
 import type {
@@ -60,7 +64,7 @@ type ModelLike = {
 };
 
 type UiLike = {
-	setFooter(text: string, priority: number): void;
+	setFooter(factory: (tui: any, theme: any, footerData: any) => unknown): void;
 	notify(message: string, kind: string): void;
 };
 
@@ -85,6 +89,16 @@ function formatWindows(
 export default function piUsage(pi: ExtensionAPI): void {
 	const cache = new Map<string, CachedSnapshot>();
 
+	// Module-level state for the footer Component. The factory reads from
+	// this object on every render(width); the extension mutates it when
+	// fresh quota data arrives, then calls requestRender to schedule a
+	// redraw.
+	const footerState: UsageFooterState = {
+		displayName: undefined,
+		windows: undefined,
+	};
+	let requestRender = (): void => undefined;
+
 	async function resolveKeys(
 		ctx: ContextLike,
 		providerIds: string[],
@@ -100,30 +114,6 @@ export default function piUsage(pi: ExtensionAPI): void {
 
 	function syncResolver(keys: Map<string, string | undefined>) {
 		return (id: string) => keys.get(id);
-	}
-
-	async function snapshotFor(
-		providerId: string,
-		ctx: ContextLike,
-		force = false,
-	): Promise<{ provider: Provider; segment: string } | undefined> {
-		const cached = cache.get(providerId);
-		if (!force && !isStale(cached)) {
-			const keys = await resolveKeys(ctx, [providerId]);
-			const provider = buildProviderFor(providerId, syncResolver(keys));
-			if (!provider) return undefined;
-			const segment = describeOutcome(provider.displayName, cached!.outcome);
-			return segment ? { provider, segment } : undefined;
-		}
-
-		const keys = await resolveKeys(ctx, [providerId]);
-		const provider = buildProviderFor(providerId, syncResolver(keys));
-		if (!provider) return undefined;
-
-		const outcome = await fetchFresh(provider);
-		cache.set(providerId, { fetchedAt: Date.now(), outcome });
-		const segment = describeOutcome(provider.displayName, outcome);
-		return segment ? { provider, segment } : undefined;
 	}
 
 	async function snapshotForProvider(
@@ -145,17 +135,42 @@ export default function piUsage(pi: ExtensionAPI): void {
 		return buildProviderFor(providerId, syncResolver(keys));
 	}
 
+	async function installFooter(
+		ctx: ContextLike,
+		provider: Provider,
+		outcome: ProviderFetchOutcome,
+	): Promise<void> {
+		// Update the footer state. If the fetch failed, leave windows
+		// undefined so the Component renders an empty line rather than
+		// leaking a stale segment.
+		footerState.displayName = provider.displayName;
+		footerState.windows = outcome.ok ? outcome.result.windows : undefined;
+
+		ctx.ui.setFooter((tui, _theme, _footerData) => {
+			// Capture the requestRender callback the TUI exposes. The
+			// extension calls this after each state mutation.
+			requestRender = () => tui.requestRender();
+			return createUsageFooterComponent({
+				getState: () => footerState,
+				requestRender,
+			});
+		});
+
+		// Force the first render now that state is populated.
+		requestRender();
+	}
+
 	pi.on("session_start", async (_event, ctx) => {
 		await configLoader.load();
 		const config = configLoader.getConfig();
+		const c = ctx as unknown as ContextLike;
 		if (!config.usageStatus) return;
 
-		const provider = await buildActive(ctx as unknown as ContextLike);
+		const provider = await buildActive(c);
 		if (!provider) return;
 		const outcome = await fetchFresh(provider);
 		cache.set(provider.id, { fetchedAt: Date.now(), outcome });
-		const segment = describeOutcome(provider.displayName, outcome);
-		if (segment) (ctx as unknown as ContextLike).ui.setFooter(segment, 1);
+		await installFooter(c, provider, outcome);
 	});
 
 	pi.registerCommand("usage", {
@@ -222,7 +237,7 @@ export default function piUsage(pi: ExtensionAPI): void {
 	});
 
 	pi.registerCommand("usage:settings", {
-		description: "Open usage.json in $EDITOR (or print the resolved config)",
+		description: "Print the resolved usage.json config",
 		handler: async (_args, ctx) => {
 			const c = ctx as unknown as ContextLike;
 			await configLoader.load();
