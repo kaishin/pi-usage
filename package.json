@@ -54,7 +54,8 @@
 	},
 	"scripts": {
 		"check": "tsc --noEmit",
-		"test": "vitest run",
+		"typecheck": "tsc --noEmit",
+		"test": "vitest --run",
 		"test:watch": "vitest"
 	}
 }
