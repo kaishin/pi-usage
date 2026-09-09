@@ -34,10 +34,7 @@ function shouldNotify(key: string, severity: RiskSeverity): boolean {
   const order: RiskSeverity[] = ["none", "warning", "high", "critical"];
   if (order.indexOf(severity) > order.indexOf(current.lastSeverity))
     return true;
-  if (severity === "high" || severity === "critical") return true;
-  if (severity === "warning")
-    return Date.now() - current.lastNotifiedAt >= COOLDOWN_MS;
-  return false;
+  return Date.now() - current.lastNotifiedAt >= COOLDOWN_MS;
 }
 
 function markNotified(key: string, severity: RiskSeverity): void {
@@ -91,19 +88,23 @@ export default async function (pi: ExtensionAPI) {
     const providerName = PROVIDER_LABELS[provider];
 
     const lines = toNotify.map(({ window, assessment }) => {
-      const projected = Math.round(assessment.projectedPercent);
+      const resetsIn = formatTimeRemaining(window.resetsAt);
+      if (window.limited || window.usedPercent >= 100) {
+        return `- ${window.label}: limit reached; resets in ${resetsIn}`;
+      }
+
       const used = Math.round(window.usedPercent);
-      return `- ${window.label}: ${used}% used, projected ${projected}% (${assessment.severity}), resets in ${formatTimeRemaining(window.resetsAt)}`;
+      if (assessment.pacePercent === null) {
+        return `- ${window.label}: ${used}% used; resets in ${resetsIn} (${assessment.severity} risk)`;
+      }
+
+      const projected = Math.round(assessment.projectedPercent);
+      return `- ${window.label}: ${used}% used, projected ${projected}% by reset in ${resetsIn} (${assessment.severity} risk)`;
     });
 
-    const level = toNotify.some(
-      (entry) =>
-        entry.assessment.severity === "critical" ||
-        entry.assessment.severity === "high",
-    )
-      ? "error"
-      : "warning";
-    ctx.ui.notify(`${providerName} quota warning:\n${lines.join("\n")}`, level);
+    // Quota risk is actionable but is not an extension or API failure. Using
+    // the warning level avoids Pi presenting these notifications as errors.
+    ctx.ui.notify(`${providerName} quota warning:\n${lines.join("\n")}`, "warning");
   }
 
   function scheduleCheck(ctx: ExtensionContext, onlyNew: boolean): void {

@@ -3,7 +3,7 @@ type: Reference
 title: Architecture
 description: Provider abstraction, footer rendering, lifecycle hooks, and extension entry point.
 status: stable
-generated: { by: human:kaishin, at: 2026-09-07T11:00:00Z }
+generated: { by: process:pi-session, at: 2026-09-09T06:23:19Z }
 tags: [architecture, code]
 ---
 
@@ -59,7 +59,8 @@ The extension writes the segment via `ctx.ui.setFooter(segment, 1)` — priority
 
 | Hook / command | Where | Purpose | Gated by |
 |---|---|---|---|
-| `session_start` | `index.ts` | Fetch initial snapshot, write footer | `usageStatus` |
+| `session_start` | `index.ts` | Fetch initial snapshot, write footer, and check quota risk | `usageStatus` / `quotaWarnings` |
+| `turn_end` | `extensions/quota-warnings/index.ts` | Check active-provider risk without blocking the turn | `quotaWarnings` |
 | `/usage` | `index.ts` | Force-refresh and print all windows for the active provider | `usageCommand` |
 | `/minimax:usage` | `index.ts` | Force-refresh the MiniMax provider specifically | `providerCommands` |
 | `/usage:settings` | `index.ts` | Print the resolved config (read-only) | — |
@@ -75,10 +76,14 @@ The extension reads `~/.pi/agent/extensions/usage.json` on every command invocat
 | `usageCommand` | `true` | Toggle `/usage` |
 | `providerCommands` | `true` | Toggle `/minimax:usage` |
 | `usageStatus` | `true` | Toggle the footer status segment |
-| `quotaWarnings` | `true` | Toggle projected-usage warning notifications (currently a no-op; reserved) |
+| `quotaWarnings` | `true` | Toggle projected-usage warning notifications |
 | `deferToSynthetic` | `true` | Suppress our footer when another extension reports the same data (reserved) |
 
 Missing fields fall back to defaults. Missing or malformed JSON is treated as \"all defaults\", so the extension runs out of the box and only deliberate edits opt features out.
+
+# Quota warning behavior
+
+Risk is assessed from absolute usage and, when a window supports it, projected usage at the current pace. Notifications use Pi's warning presentation rather than its error presentation. A severity increase is reported immediately; otherwise the same risky window is repeated no more than once per hour. Exhausted windows say `limit reached`, while pace-aware warnings include the projected percentage by reset.
 
 # Auth
 

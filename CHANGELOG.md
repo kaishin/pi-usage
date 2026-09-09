@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+- MiniMax windows no longer treat undocumented status value `1` as exhaustion when quota remains.
+- Quota risks use warning notifications instead of appearing as errors, show clearer limit/projection text, and repeat unchanged high or critical alerts no more than once per hour.
+
 ## [0.5.0] - 2026-08-31
 
 ### Added

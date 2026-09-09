@@ -3,8 +3,7 @@ type: API Endpoint
 title: Provider — MiniMax
 description: MiniMax Token Plan usage endpoint, auth, response shape, and parsing rules.
 status: stable
-generated: { by: human:kaishin, at: 2026-09-07T11:00:00Z }
-verified: { by: human:kaishin, at: 2026-09-07T11:00:00Z }
+generated: { by: process:pi-session, at: 2026-09-09T06:23:19Z }
 tags: [provider, minimax, api]
 sources:
   - id: minimax-coding-plan
@@ -78,8 +77,8 @@ No body. No query parameters.
 | `weekly_start_time`, `weekly_end_time` | Weekly window start / reset, epoch ms. |
 | `remains_time`, `weekly_remains_time` | Milliseconds until reset (redundant with `end_time` but cheaper to read). |
 | `*_total_count`, `*_usage_count` | Coarse counts. Often 0 on the rolling window when the interval has just started. |
-| `*_status` | Observed enum: `1` = limited, `3` = healthy. Surfaced as `QuotaWindow.limited`. |
-| `*_remaining_percent` | **Remaining** (0–100), not used. Inverted in the parser. |
+| `*_status` | Undocumented and not used as an exhaustion signal. Live responses can report `1` while substantial quota remains. |
+| `*_remaining_percent` | **Remaining** (0–100), not used. Inverted in the parser and treated as the authoritative limit signal. |
 
 # Parsing rules
 
@@ -88,7 +87,8 @@ No body. No query parameters.
 1. Skip entries missing `start_time` / `end_time` (or weekly equivalents).
 2. Derive `windowSeconds` from `end_time - start_time` (and weekly equivalents). Do not hardcode 5h or 7d.
 3. Convert each `*_remaining_percent` to `usedPercent = clamp(100 - remaining, 0, 100)`.
-4. Sort windows: shortest window first, then alphabetical by label.
+4. Mark a window limited only when `usedPercent` reaches 100; do not infer this from `*_status`.
+5. Sort windows: shortest window first, then alphabetical by label.
 
 # Failure modes
 

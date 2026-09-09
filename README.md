@@ -54,7 +54,7 @@ When the active model is from a supported provider, the Pi footer shows real-tim
 
 ### Quota warnings
 
-Automatic notifications when projected usage is on track to exceed limits before the window resets.
+Automatic warning notifications when usage or the current pace risks exhausting a quota before reset. Severity increases are reported immediately; unchanged risks repeat at most once per hour.
 
 ### Settings
 

@@ -998,9 +998,11 @@ describe("parseMiniMaxUsage", () => {
           weekly_start_time: start,
           weekly_end_time: weekEnd,
           weekly_remains_time: weekEnd - start,
-          current_interval_status: 3,
+          // Status 1 is also observed on healthy live windows, so it must not
+          // override the authoritative remaining percentages.
+          current_interval_status: 1,
           current_interval_remaining_percent: 47,
-          current_weekly_status: 3,
+          current_weekly_status: 1,
           current_weekly_remaining_percent: 82,
         },
       ],
@@ -1037,7 +1039,7 @@ describe("parseMiniMaxUsage", () => {
     expect(weekly?.paceScale).toBeUndefined();
   });
 
-  it("flags windows as limited when status is 1", () => {
+  it("flags exhausted windows as limited", () => {
     const start = Date.parse("2026-04-22T00:00:00Z");
     const intervalEnd = start + 5 * 60 * 60 * 1000;
     const weekEnd = start + 7 * 24 * 60 * 60 * 1000;

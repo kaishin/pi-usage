@@ -801,10 +801,10 @@ export function parseOllamaCloudUsage(data: any): QuotaWindow[] {
 // `usedPercent`. Without this inversion the dashboard, progress bar, and
 // quota warnings would render healthy and exhausted accounts backwards.
 //
-// `current_interval_status` / `current_weekly_status` look like enum flags
-// (1 = limited, 3 = healthy in observed responses) — we map those to
-// `limited` so the dashboard can render a warning independently of the
-// percentage.
+// MiniMax's undocumented `*_status` values are not reliable exhaustion
+// signals: live responses can return status 1 while most of the quota remains.
+// Treat the authoritative remaining percentage as the limit signal instead,
+// otherwise healthy windows are incorrectly classified as critical.
 //
 // Window length is derived from `end_time - start_time` (and
 // `weekly_end_time - weekly_start_time`) so we don't hardcode 5h or 7d; if
@@ -837,13 +837,14 @@ export function parseMiniMaxUsage(data: any): QuotaWindow[] {
         (entry.end_time - entry.start_time) / 1000,
       );
       const resetsAt = new Date(entry.end_time);
-      const limited = entry.current_interval_status === 1;
+      const usedPercent = remainingToUsedPercent(
+        entry.current_interval_remaining_percent,
+      );
+      const limited = usedPercent >= 100;
       windows.push({
         provider: "minimax",
         label: labelBase,
-        usedPercent: remainingToUsedPercent(
-          entry.current_interval_remaining_percent,
-        ),
+        usedPercent,
         resetsAt,
         windowSeconds,
         usedValue: Number(entry.current_interval_usage_count ?? 0),
@@ -868,13 +869,14 @@ export function parseMiniMaxUsage(data: any): QuotaWindow[] {
         (entry.weekly_end_time - entry.weekly_start_time) / 1000,
       );
       const resetsAt = new Date(entry.weekly_end_time);
-      const limited = entry.current_weekly_status === 1;
+      const usedPercent = remainingToUsedPercent(
+        entry.current_weekly_remaining_percent,
+      );
+      const limited = usedPercent >= 100;
       windows.push({
         provider: "minimax",
         label: `${labelBase} / wk`,
-        usedPercent: remainingToUsedPercent(
-          entry.current_weekly_remaining_percent,
-        ),
+        usedPercent,
         resetsAt,
         windowSeconds,
         usedValue: Number(entry.current_weekly_usage_count ?? 0),
