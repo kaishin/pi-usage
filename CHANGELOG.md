@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [2.0.1] - 2026-09-09
 
 ### Fixed
 - MiniMax windows no longer treat undocumented status value `1` as exhaustion when quota remains.
