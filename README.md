@@ -46,7 +46,7 @@ Restart or `/reload` to load the extension.
 
 ### Dashboard
 
-`/usage` opens a bordered TUI view showing all configured providers side by side with progress bars, used/remaining counts, and reset times. Press `r` to refresh, `q` or `Esc` to close.
+`/usage` opens a bordered TUI view showing all configured providers side by side with progress bars, used/remaining counts, and reset times. Hourly and weekly bars include a `|` at the current elapsed time so you can tell if usage is ahead of or behind pace. Press `r` to refresh, `q` or `Esc` to close.
 
 ### Footer status
 

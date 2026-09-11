@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- Dashboard hourly and weekly progress bars now show a vertical time-progress line so usage can be compared against elapsed window time.
+
 ## [2.0.1] - 2026-09-09
 
 ### Fixed

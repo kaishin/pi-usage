@@ -8,6 +8,7 @@ import type { QuotasResult, SupportedQuotaProvider } from "../../../types/quotas
 import {
   assessWindow,
   formatTimeRemaining,
+  getPacePercent,
   getSeverityColor,
 } from "../../../utils/quotas-severity.js";
 
@@ -20,32 +21,35 @@ type QuotasState =
   | { type: "loading" }
   | { type: "loaded"; snapshots: Snapshot[] };
 
+const HOUR_SECONDS = 60 * 60;
+const DAY_SECONDS = 24 * HOUR_SECONDS;
+
+function isHourlyOrWeeklyWindow(windowSeconds: number): boolean {
+  if (windowSeconds < HOUR_SECONDS) return false;
+  if (windowSeconds <= 12 * HOUR_SECONDS) return true;
+  return windowSeconds >= 6 * DAY_SECONDS && windowSeconds <= 8 * DAY_SECONDS;
+}
+
 function renderProgressBar(
   percent: number,
   width: number,
   theme: Theme,
   fillColor: "success" | "warning" | "error",
-  pacePercent?: number | null,
+  timePercent?: number | null,
 ): string {
   const clamped = Math.max(0, Math.min(100, Math.round(percent)));
   const filled = Math.round((clamped / 100) * width);
-  const showPace =
-    percent > 0 &&
-    pacePercent !== null &&
-    pacePercent !== undefined &&
-    pacePercent >= 5 &&
-    Math.abs(pacePercent - percent) >= 5;
-  const paceIndex = showPace
-    ? Math.min(width - 1, Math.round((Math.max(0, Math.min(100, pacePercent ?? 0)) / 100) * width))
-    : null;
+  const timeIndex =
+    timePercent === null || timePercent === undefined || !Number.isFinite(timePercent)
+      ? null
+      : Math.min(
+          width - 1,
+          Math.round((Math.max(0, Math.min(100, timePercent)) / 100) * width),
+        );
   const parts: string[] = [];
   for (let idx = 0; idx < width; idx++) {
-    if (paceIndex !== null && idx === paceIndex) {
-      if (idx < filled) {
-        parts.push(theme.fg(fillColor, "█"));
-      } else {
-        parts.push(theme.fg(fillColor, "|"));
-      }
+    if (timeIndex !== null && idx === timeIndex) {
+      parts.push(theme.fg("dim", "|"));
     } else if (idx < filled) {
       parts.push(theme.fg(fillColor, "█"));
     } else {
@@ -192,7 +196,11 @@ export class QuotasComponent implements Component {
         usedStr = `${remaining}% left`;
       }
 
-      const bar = renderProgressBar(window.usedPercent, barWidth, this.theme, color, assessment.pacePercent);
+      const timePercent =
+        isHourlyOrWeeklyWindow(window.windowSeconds) && window.resetsAt.getTime() > 0
+          ? getPacePercent(window)
+          : null;
+      const bar = renderProgressBar(window.usedPercent, barWidth, this.theme, color, timePercent);
       const limitedBadge = window.limited ? this.theme.fg("error", " LIMITED") : "";
       // Color the label based on severity: dim when safe, colored when at risk
       const isAtRisk = assessment.severity !== "none";

@@ -20,6 +20,17 @@ function fakeTheme() {
   };
 }
 
+function stripAnsi(text: string): string {
+  return text.replace(/\x1b\[[0-9;]*m/g, "");
+}
+
+function barLine(output: string, label: string): string {
+  const lines = stripAnsi(output).split("\n");
+  const labelIndex = lines.findIndex((line) => line.includes(`${label}:`));
+  if (labelIndex < 0) throw new Error(`missing label ${label}`);
+  return lines[labelIndex + 1] ?? "";
+}
+
 function makeComponent(): QuotasComponent {
   return new QuotasComponent(
     fakeTheme() as any,
@@ -47,7 +58,103 @@ describe("QuotasComponent", () => {
     );
   });
 
-  it("does not render an accent-colored pace marker inside filled warning bars", () => {
+  it("draws a dim time-progress line on hourly and weekly bars", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-05-14T13:42:11Z"));
+
+    const component = makeComponent();
+    component.setState({
+      type: "loaded",
+      snapshots: [
+        {
+          provider: "anthropic",
+          result: {
+            success: true,
+            data: {
+              provider: "anthropic",
+              windows: [
+                {
+                  provider: "anthropic",
+                  label: "5h",
+                  usedPercent: 9,
+                  resetsAt: new Date("2026-05-14T16:18:11Z"),
+                  windowSeconds: 5 * 3600,
+                  usedValue: 9,
+                  limitValue: 100,
+                  showPace: false,
+                  nextLabel: "Resets",
+                },
+                {
+                  provider: "anthropic",
+                  label: "7d",
+                  usedPercent: 31,
+                  resetsAt: new Date("2026-05-16T06:18:11Z"),
+                  windowSeconds: 7 * 24 * 3600,
+                  usedValue: 31,
+                  limitValue: 100,
+                  showPace: false,
+                  nextLabel: "Resets",
+                },
+                {
+                  provider: "anthropic",
+                  label: "Extra (AUD)",
+                  usedPercent: 78,
+                  resetsAt: new Date("2026-06-01T00:00:00Z"),
+                  windowSeconds: 30 * 24 * 3600,
+                  usedValue: 233.68,
+                  limitValue: 300,
+                  isCurrency: true,
+                  showPace: true,
+                  nextLabel: "Resets",
+                },
+              ],
+            },
+          },
+        },
+        {
+          provider: "openai-codex",
+          result: {
+            success: true,
+            data: {
+              provider: "openai-codex",
+              windows: [
+                {
+                  provider: "openai-codex",
+                  label: "5h",
+                  usedPercent: 45,
+                  resetsAt: new Date("2026-05-14T17:23:11Z"),
+                  windowSeconds: 5 * 3600,
+                  usedValue: 45,
+                  limitValue: 100,
+                  showPace: false,
+                  nextLabel: "Resets",
+                },
+              ],
+            },
+          },
+        },
+      ],
+    });
+
+    const output = component.render(70).join("\n");
+    const hourly = barLine(output, "5h");
+    const weekly = barLine(output, "7d");
+    const extra = barLine(output, "Extra (AUD)");
+    const ahead = stripAnsi(output)
+      .split("\n")
+      .filter((line) => line.includes("█") || line.includes("|"))
+      .at(-1) ?? "";
+
+    expect(hourly).toMatch(/█{4}░+\|/);
+    expect(output).toContain(`${ansi.dim}|`);
+    expect(weekly).toMatch(/█{13}░+\|/);
+    expect(extra).not.toContain("|");
+    expect(ahead).toMatch(/█+\|█+/);
+
+    vi.useRealTimers();
+  });
+
+  it("does not draw a time-progress line on monthly bars", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-14T13:42:11Z"));
 
@@ -84,12 +191,12 @@ describe("QuotasComponent", () => {
     const output = component.render(70).join("\n");
 
     expect(output).toContain("51/300 left");
-    expect(output).not.toContain(`${ansi.accent}|`);
+    expect(barLine(output, "Premium / month")).not.toContain("|");
 
     vi.useRealTimers();
   });
 
-  it("does not render a pace marker for zero-usage windows", () => {
+  it("still draws the time-progress line on unused hourly and weekly bars", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-05-14T13:49:29Z"));
 
@@ -98,24 +205,22 @@ describe("QuotasComponent", () => {
       type: "loaded",
       snapshots: [
         {
-          provider: "synthetic",
+          provider: "anthropic",
           result: {
             success: true,
             data: {
-              provider: "synthetic",
+              provider: "anthropic",
               windows: [
                 {
-                  provider: "synthetic",
-                  label: "Credits / week",
+                  provider: "anthropic",
+                  label: "7d",
                   usedPercent: 0,
-                  resetsAt: new Date("2026-05-14T16:40:29Z"),
+                  resetsAt: new Date("2026-05-16T06:18:11Z"),
                   windowSeconds: 7 * 24 * 3600,
                   usedValue: 0,
-                  limitValue: 24,
-                  isCurrency: true,
-                  showPace: true,
-                  nextLabel: "Next regen",
-                  nextAmount: "+$0.48",
+                  limitValue: 100,
+                  showPace: false,
+                  nextLabel: "Resets",
                 },
               ],
             },
@@ -126,8 +231,9 @@ describe("QuotasComponent", () => {
 
     const output = component.render(70).join("\n");
 
-    expect(output).toContain("$0.00 / $24.00");
-    expect(output).not.toContain("|");
+    expect(output).toContain("100% left");
+    expect(barLine(output, "7d")).toContain("|");
+    expect(barLine(output, "7d")).not.toContain("█");
 
     vi.useRealTimers();
   });
