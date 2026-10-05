@@ -331,6 +331,13 @@ export default async function (pi: ExtensionAPI) {
       return;
     }
     if (currentContext) {
+      // Same guard as session_start / turn_end / model_select: saving any
+      // setting must not resurrect our footer while pi-synthetic is showing
+      // the same data and deferToSynthetic is on.
+      if (shouldDeferToSynthetic(getContextProvider(currentContext))) {
+        refresher.stop(currentContext);
+        return;
+      }
       refresher.start();
       scheduleRefresh(currentContext);
     }

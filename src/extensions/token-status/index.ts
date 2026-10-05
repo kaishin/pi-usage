@@ -188,7 +188,13 @@ export default async function (pi: ExtensionAPI) {
       refresher.stop(currentContext);
       return;
     }
+    // Same guard as session_start: enabling token-status from /usage:settings
+    // must not start the Go rolling-cost refresher for a non-Go provider.
     if (currentContext) {
+      if (!isGoProvider(currentContext.model?.provider)) {
+        refresher.stop(currentContext);
+        return;
+      }
       refresher.start();
       scheduleRefresh(currentContext);
     }
