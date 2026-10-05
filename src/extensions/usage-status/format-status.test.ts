@@ -245,4 +245,213 @@ describe("formatWindowStatus", () => {
     expect(result).toContain("(↺now)");
     expect(result).not.toContain("(↺in now)");
   });
+
+  describe("detailed status (dedicated line)", () => {
+    const WINDOW_START = "2026-05-06T05:00:00Z";
+    // 5h window, 30% elapsed (1.5h in, 3.5h to reset).
+    const RESET_30_PCT = "2026-05-06T08:30:00Z";
+
+    it("appends time-to-exhaustion when a window runs out before reset", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(WINDOW_START));
+      const w: WindowStatus = {
+        label: "5h",
+        usedPercent: 90,
+        severity: "critical",
+        resetsAt: RESET_30_PCT,
+        limited: false,
+        usedValue: 90,
+        limitValue: 100,
+        windowSeconds: 5 * 60 * 60,
+      };
+      // 30% elapsed, 90% used => 10 minutes to exhaustion (not 3h 20m).
+      expect(formatWindowStatus(theme, w, true)).toContain("runs out ~10m");
+    });
+
+    it("omits the hint when usage is not ahead of elapsed time", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(WINDOW_START));
+      const w: WindowStatus = {
+        label: "5h",
+        usedPercent: 40,
+        severity: "warning",
+        // 1h remaining of a 5h window => 80% elapsed, ahead of 40% used.
+        resetsAt: "2026-05-06T06:00:00Z",
+        limited: false,
+        usedValue: 40,
+        limitValue: 100,
+        windowSeconds: 5 * 60 * 60,
+      };
+      expect(formatWindowStatus(theme, w, true)).not.toContain("runs out");
+    });
+
+    it("omits the hint for healthy windows even when ahead of pace", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(WINDOW_START));
+      const w: WindowStatus = {
+        label: "5h",
+        usedPercent: 90,
+        severity: "none",
+        resetsAt: RESET_30_PCT,
+        limited: false,
+        usedValue: 90,
+        limitValue: 100,
+        windowSeconds: 5 * 60 * 60,
+      };
+      expect(formatWindowStatus(theme, w, true)).not.toContain("runs out");
+    });
+
+    it("omits the hint for limited or already-exhausted windows", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(WINDOW_START));
+      const base: WindowStatus = {
+        label: "5h",
+        usedPercent: 100,
+        severity: "critical",
+        resetsAt: RESET_30_PCT,
+        limited: false,
+        usedValue: 100,
+        limitValue: 100,
+        windowSeconds: 5 * 60 * 60,
+      };
+      expect(formatWindowStatus(theme, base, true)).not.toContain("runs out");
+      expect(
+        formatWindowStatus(
+          theme,
+          { ...base, usedPercent: 90, limited: true },
+          true,
+        ),
+      ).not.toContain("runs out");
+    });
+
+    it("omits the hint when the reset time is unknown", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(WINDOW_START));
+      const w: WindowStatus = {
+        label: "5h",
+        usedPercent: 90,
+        severity: "critical",
+        resetsAt: null,
+        limited: false,
+        usedValue: 90,
+        limitValue: 100,
+        windowSeconds: 5 * 60 * 60,
+      };
+      expect(formatWindowStatus(theme, w, true)).not.toContain("runs out");
+    });
+
+    it("omits the hint when the reset time is in the past", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(WINDOW_START));
+      const w: WindowStatus = {
+        label: "5h",
+        usedPercent: 90,
+        severity: "critical",
+        resetsAt: "2026-05-06T04:00:00Z",
+        limited: false,
+        usedValue: 90,
+        limitValue: 100,
+        windowSeconds: 5 * 60 * 60,
+      };
+      expect(formatWindowStatus(theme, w, true)).not.toContain("runs out");
+    });
+
+    it("omits the hint when usage exactly matches elapsed time", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(WINDOW_START));
+      const w: WindowStatus = {
+        label: "5h",
+        usedPercent: 50,
+        severity: "warning",
+        // 2.5h remaining of a 5h window => 50% elapsed.
+        resetsAt: "2026-05-06T07:30:00Z",
+        limited: false,
+        usedValue: 50,
+        limitValue: 100,
+        windowSeconds: 5 * 60 * 60,
+      };
+      expect(formatWindowStatus(theme, w, true)).not.toContain("runs out");
+    });
+
+    it("ignores paceScale when estimating exhaustion", () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date(WINDOW_START));
+      // OpenCode Go-style weekly window: paceScale distorts the assessment
+      // pace, but the hint must use physical elapsed time only. 50% elapsed and
+      // 50% used must therefore produce no hint.
+      const status = toWindowStatus({
+        provider: "opencode-go",
+        label: "Weekly",
+        usedPercent: 50,
+        resetsAt: new Date("2026-05-09T17:00:00Z"),
+        windowSeconds: 7 * 24 * 60 * 60,
+        usedValue: 50,
+        limitValue: 100,
+        showPace: true,
+        paceScale: 1 / 7,
+      });
+      expect(formatWindowStatus(theme, status, true)).not.toContain("runs out");
+    });
+
+    it("prepends a severity glyph only in detailed mode", () => {
+      const windows: WindowStatus[] = [
+        {
+          label: "5h",
+          usedPercent: 85,
+          severity: "warning",
+          resetsAt: null,
+          limited: false,
+          usedValue: 85,
+          limitValue: 100,
+        },
+      ];
+      expect(formatStatus({ ui: { theme } } as any, windows, true)).toContain(
+        "[warning]▲",
+      );
+      expect(formatStatus({ ui: { theme } } as any, windows)).not.toContain("▲");
+    });
+
+    it("uses the highest severity across windows for the glyph", () => {
+      const windows: WindowStatus[] = [
+        {
+          label: "5h",
+          usedPercent: 10,
+          severity: "none",
+          resetsAt: null,
+          limited: false,
+          usedValue: 10,
+          limitValue: 100,
+        },
+        {
+          label: "7d",
+          usedPercent: 85,
+          severity: "high",
+          resetsAt: null,
+          limited: false,
+          usedValue: 85,
+          limitValue: 100,
+        },
+      ];
+      expect(formatStatus({ ui: { theme } } as any, windows, true)).toContain(
+        "[error]✕",
+      );
+    });
+
+    it("uses a safe glyph when all windows are healthy", () => {
+      const windows: WindowStatus[] = [
+        {
+          label: "5h",
+          usedPercent: 10,
+          severity: "none",
+          resetsAt: null,
+          limited: false,
+          usedValue: 10,
+          limitValue: 100,
+        },
+      ];
+      expect(formatStatus({ ui: { theme } } as any, windows, true)).toContain(
+        "[success]●",
+      );
+    });
+  });
 });

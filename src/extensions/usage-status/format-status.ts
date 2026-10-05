@@ -1,5 +1,5 @@
 import type { RiskSeverity } from "../../utils/quotas-severity.js";
-import { getSeverityColor } from "../../utils/quotas-severity.js";
+import { formatTimeRemaining, getSeverityColor } from "../../utils/quotas-severity.js";
 
 export type WindowStatus = {
   label: string;
@@ -10,6 +10,8 @@ export type WindowStatus = {
   isCurrency?: boolean;
   usedValue?: number;
   limitValue?: number;
+  /** Window length in seconds, used to estimate time-to-exhaustion. */
+  windowSeconds?: number;
 };
 
 export interface ThemeLike {
@@ -56,6 +58,46 @@ function hasRealCounts(w: WindowStatus): boolean {
 }
 
 /**
+ * Estimate how long until a window is exhausted, assuming the current linear
+ * rate, when it is on pace to run out before reset.
+ *
+ * Uses only physical quantities (window length, reset time, usage) so it is not
+ * affected by `paceScale`, which intentionally distorts the assessment pace for
+ * some providers. Returns undefined when the window is not projected to exhaust
+ * before reset, is already exhausted, or lacks a usable reset time.
+ */
+function formatExhaustionHint(w: WindowStatus): string | undefined {
+  if (w.severity === "none") return undefined;
+  if (w.limited || w.usedPercent >= 100) return undefined;
+  if (w.usedPercent <= 0) return undefined;
+  if (!w.windowSeconds || w.windowSeconds <= 0) return undefined;
+  if (!w.resetsAt) return undefined;
+
+  const resetMs = Date.parse(w.resetsAt);
+  if (!Number.isFinite(resetMs)) return undefined;
+  const remainingMs = resetMs - Date.now();
+  if (remainingMs <= 0) return undefined;
+
+  const totalMs = w.windowSeconds * 1000;
+  const elapsedMs = totalMs - remainingMs;
+  if (elapsedMs <= 0) return undefined;
+
+  const elapsedFraction = elapsedMs / totalMs;
+  const usedFraction = w.usedPercent / 100;
+  // Only beats the reset when usage is ahead of elapsed time (used > elapsed).
+  if (usedFraction <= elapsedFraction) return undefined;
+
+  // Time for usage to reach 100% at the current rate, as a fraction of the window.
+  const timeToExhaustMs =
+    (totalMs * elapsedFraction * (1 - usedFraction)) / usedFraction;
+  if (!Number.isFinite(timeToExhaustMs) || timeToExhaustMs <= 0) {
+    return "now";
+  }
+  if (timeToExhaustMs >= remainingMs) return undefined;
+  return formatTimeRemaining(new Date(Date.now() + timeToExhaustMs));
+}
+
+/**
  * Format a single window for the footer status bar.
  *
  * - Colors both the label and value based on severity
@@ -63,8 +105,14 @@ function hasRealCounts(w: WindowStatus): boolean {
  * - Uses "$X/$Y" for currency windows
  * - Uses "N% left" for percentage-only windows
  * - Uses "REACHED" / "OK" for spend cap
+ * - When `detailed`, appends a time-to-exhaustion hint for windows projected to
+ *   run out before they reset
  */
-export function formatWindowStatus(theme: ThemeLike, w: WindowStatus): string {
+export function formatWindowStatus(
+  theme: ThemeLike,
+  w: WindowStatus,
+  detailed = false,
+): string {
   const short = SHORT_LABELS[w.label] ?? w.label;
   const color = getSeverityColor(w.severity);
 
@@ -103,5 +151,9 @@ export function formatWindowStatus(theme: ThemeLike, w: WindowStatus): string {
   }
 
   const limitTag = w.limited ? theme.fg("error", " !") : "";
-  return `${labelText}${valueText}${limitTag}`;
+  const exhaustion = detailed ? formatExhaustionHint(w) : undefined;
+  const exhaustTag = exhaustion
+    ? theme.fg("dim", ` (runs out ~${exhaustion})`)
+    : "";
+  return `${labelText}${valueText}${limitTag}${exhaustTag}`;
 }
