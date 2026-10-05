@@ -38,7 +38,10 @@ vi.mock("../../config.js", () => ({
 }));
 
 vi.mock("../../lib/quotas.js", () => ({
-  isSupportedProvider: (provider: string | undefined) => provider === "anthropic",
+  // "synthetic" is included so the Synthetic-deferral tests exercise a real
+  // refresh path; other tests use "anthropic".
+  isSupportedProvider: (provider: string | undefined) =>
+    provider === "anthropic" || provider === "synthetic",
   fetchProviderQuotas: vi.fn(async () => ({
     success: true,
     data: { provider: "anthropic", windows: [] },
@@ -316,6 +319,36 @@ describe("usage-status extension lifecycle", () => {
         (call) => typeof call[1] === "string" && call[1].includes("credits:"),
       ),
     ).toBe(true);
+  });
+
+  it("does not resurrect the footer after a settings save while pi-synthetic is active", async () => {
+    vi.useFakeTimers();
+    vi.mocked(fetchProviderQuotas).mockResolvedValue({
+      success: true,
+      data: { provider: "synthetic", windows: [quotaWindow()] },
+    } as any);
+
+    const { pi, emitExtensionEvent, emitBusEvent } = createFakePi();
+    const { ctx, setStatus } = createContext("synthetic");
+
+    await usageStatusExtension(pi);
+    // pi-synthetic registers its usage footer, then the session starts on the
+    // Synthetic provider: the deferral guard stops our refresher.
+    emitBusEvent("synthetic:extensions:register", { feature: "usageStatus" });
+    await emitExtensionEvent("session_start", ctx);
+    await vi.advanceTimersByTimeAsync(0);
+
+    // Saving any setting re-emits the config payload; the handler must not
+    // restart the refresher while the deferral still applies. Advance past a
+    // refresh interval to prove no interval was left running either.
+    emitBusEvent("usage:config:updated", { config: { ...BASE_CONFIG } });
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    const statusCalls = setStatus.mock.calls as unknown as Array<
+      [string, string | undefined]
+    >;
+    expect(statusCalls.length).toBeGreaterThan(0);
+    expect(statusCalls.every(([, value]) => value === undefined)).toBe(true);
   });
 
   it("falls back to the shared status row in non-TUI modes", async () => {
