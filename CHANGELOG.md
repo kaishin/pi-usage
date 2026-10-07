@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.3.0] - 2026-10-05
+
+### Added
+- **`usageStatusPlacement` setting** (#9): render the usage status in the shared footer status row (default), or on a dedicated widget line above/below the editor — avoiding truncation and collisions with other extensions that consume the shared status channel. Applies live from `/usage:settings`; the dedicated line adds a severity glyph (● / ▲ / ✕) and a time-to-exhaustion estimate for windows projected to run out before reset.
+
+### Fixed
+- Features disabled at startup can now be re-enabled from `/usage:settings`; sub-extension self-registration no longer depends on the enabled flag (#9).
+- Saving any setting no longer resurrects the usage footer while pi-synthetic is showing the same data (#10).
+- Enabling token-status at runtime for a non-Go provider no longer leaves a Go rolling-cost interval running (#10).
+
 ## [2.2.1] - 2026-10-03
 
 ### Fixed
