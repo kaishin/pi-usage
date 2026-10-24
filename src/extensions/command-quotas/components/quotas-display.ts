@@ -125,7 +125,9 @@ export class QuotasComponent implements Component {
     lines.push("");
     lines.push(this.theme.fg("dim", `  pi-usage v${pkg.version}  ·  r to refresh  q/Esc to close`));
     lines.push(...border.render(width));
-    return lines;
+    // Pi rejects over-wide lines. Bound the complete output, including help
+    // text and loader output, when the terminal is narrow or resized.
+    return lines.map((line) => truncateToWidth(line, width));
   }
 
   private renderLoaded(snapshots: Snapshot[], maxWidth: number): string[] {
