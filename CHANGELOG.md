@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+## [2.3.1] - 2026-10-25
+
+### Fixed
+- `/usage` and `/tokens` no longer crash Pi in narrow terminals. All dashboard lines now fit the available terminal width, including after resizing (#12).
+
 ## [2.3.0] - 2026-10-05
 
 ### Added
