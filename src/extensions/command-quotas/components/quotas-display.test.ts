@@ -69,6 +69,33 @@ describe("QuotasComponent", () => {
         }],
       });
       checkWidths();
+      component.setState({
+        type: "loaded",
+        snapshots: [{
+          provider: "anthropic",
+          result: {
+            success: true,
+            data: {
+              provider: "anthropic",
+              windows: [{
+                provider: "anthropic",
+                label: "Quota-界".repeat(12),
+                usedPercent: 25,
+                usedValue: 25,
+                limitValue: 100,
+                windowSeconds: 5 * 3600,
+                resetsAt: new Date(0),
+                nextLabel: "Reset-界".repeat(12),
+              }],
+            },
+          },
+        }],
+      });
+      const output = component.render(80).join("\n");
+      expect(output).toContain("Quota-界");
+      expect(output).toContain("█");
+      expect(output).toContain("75% left");
+      checkWidths();
     } finally {
       component.destroy();
     }

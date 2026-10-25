@@ -42,6 +42,50 @@ describe("TokensComponent", () => {
         component.handleInput(key);
         checkWidths();
       }
+
+      const tokens = {
+        ...emptyBuckets(),
+        input: 1000,
+        output: 500,
+        totalTokens: 1500,
+        costTotal: 12.5,
+      };
+      component.setState({
+        type: "loaded",
+        result: {
+          totals: tokens,
+          byProvider: [{ provider: "provider-界", tokens, messageCount: 1 }],
+          byModel: [{
+            provider: "provider-界",
+            model: "model-界".repeat(12),
+            tokens,
+            messageCount: 1,
+          }],
+          bySession: [{
+            sessionId: "session-id",
+            sessionPath: "/tmp/session.jsonl",
+            cwd: "/tmp/project",
+            name: "session-界".repeat(12),
+            created: new Date("2026-10-24T00:00:00Z"),
+            tokens,
+            messageCount: 1,
+          }],
+          sessionCount: 1,
+          messageCount: 1,
+        },
+      });
+      for (const [key, label] of [
+        ["1", "provider-界"],
+        ["2", "model-界"],
+        ["3", "session-界"],
+      ]) {
+        component.handleInput(key);
+        const output = component.render(200).join("\n");
+        expect(output).toContain(label);
+        expect(output).toContain("█");
+        expect(output).toContain("$12.50");
+        checkWidths();
+      }
     } finally {
       component.destroy();
     }
