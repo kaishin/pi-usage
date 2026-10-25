@@ -182,7 +182,9 @@ export class TokensComponent implements Component {
       ),
     );
     lines.push(...border.render(width));
-    return lines;
+    // Pi rejects over-wide lines. Bound the complete output, including help
+    // text and loader output, when the terminal is narrow or resized.
+    return lines.map((line) => truncateToWidth(line, width));
   }
 
   private renderTab(width: number): string[] {

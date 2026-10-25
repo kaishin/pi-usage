@@ -1,3 +1,4 @@
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { describe, expect, it, vi } from "vitest";
 import pkg from "../../../../package.json" with { type: "json" };
 import { QuotasComponent } from "./quotas-display.js";
@@ -42,6 +43,64 @@ function makeComponent(): QuotasComponent {
 }
 
 describe("QuotasComponent", () => {
+  it("keeps loading and loaded output within the terminal width after resizing", () => {
+    const component = makeComponent();
+    const checkWidths = () => {
+      for (const width of [80, 48, 20, 1, 0, 48, 80]) {
+        for (const line of component.render(width)) {
+          expect(visibleWidth(line), `width ${width}: ${line}`).toBeLessThanOrEqual(width);
+        }
+      }
+    };
+
+    try {
+      // The loading footer caused a crash at 48 columns.
+      checkWidths();
+      component.setState({ type: "loaded", snapshots: [] });
+      checkWidths();
+      component.setState({
+        type: "loaded",
+        snapshots: [{
+          provider: "anthropic",
+          result: {
+            success: false,
+            error: { kind: "network", message: "Quota unavailable 界".repeat(10) },
+          },
+        }],
+      });
+      checkWidths();
+      component.setState({
+        type: "loaded",
+        snapshots: [{
+          provider: "anthropic",
+          result: {
+            success: true,
+            data: {
+              provider: "anthropic",
+              windows: [{
+                provider: "anthropic",
+                label: "Quota-界".repeat(12),
+                usedPercent: 25,
+                usedValue: 25,
+                limitValue: 100,
+                windowSeconds: 5 * 3600,
+                resetsAt: new Date(0),
+                nextLabel: "Reset-界".repeat(12),
+              }],
+            },
+          },
+        }],
+      });
+      const output = component.render(80).join("\n");
+      expect(output).toContain("Quota-界");
+      expect(output).toContain("█");
+      expect(output).toContain("75% left");
+      checkWidths();
+    } finally {
+      component.destroy();
+    }
+  });
+
   it("renders the pi-usage package version in the dashboard footer", () => {
     const component = makeComponent();
     component.setState({ type: "loaded", snapshots: [] });
