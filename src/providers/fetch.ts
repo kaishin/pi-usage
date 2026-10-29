@@ -131,7 +131,7 @@ type FetchJsonResult =
       ok: false;
       status?: number;
       message: string;
-      kind: "timeout" | "cancelled" | "http" | "network";
+      kind: "timeout" | "cancelled" | "http" | "network" | "unauthorized";
     };
 
 /**
@@ -179,7 +179,10 @@ async function fetchJson(
         ok: false,
         status: response.status,
         message: cleanHttpErrorMessage(body) || response.statusText || `HTTP ${response.status}`,
-        kind: "http",
+        // A rejected credential is a credential problem, not a provider
+        // outage. The provider has no usage to report, so the combined
+        // dashboard hides it; the per-provider command still explains it.
+        kind: response.status === 401 ? "unauthorized" : "http",
       };
     }
     return { ok: true, data: await response.json() };
@@ -492,7 +495,7 @@ export async function fetchOpenCodeGoQuotas(
   // `pi /login opencode-go` API key, then the generic OPENCODE_API_KEY (the
   // variable Pi's own opencode-go provider uses, also reachable through Pi's
   // resolved lookup, which additionally covers OAuth backends and refresh),
-  // then a config file / the OpenCode CLI auth.json.
+  // then a pi-usage config file.
   let apiKey = process.env.OPENCODE_GO_API_KEY?.trim() || undefined;
   if (!apiKey) apiKey = storedProviderApiKey(authStorage, "opencode-go");
   if (!apiKey) apiKey = resolveOpenCodeGoApiKeyFromEnv()?.apiKey;
@@ -524,7 +527,16 @@ export async function fetchOpenCodeGoQuotas(
   }
 
   const result = await queryOpenCodeGoQuota({ apiKey }, signal);
-  if (!result.success) return failure(result.error, "http");
+  if (!result.success) {
+    // A rejected key means the stored credential cannot authenticate. It is a
+    // credential problem, not a provider outage, so the combined dashboard
+    // hides it instead of showing a warning for a provider the user may not
+    // even be using.
+    return failure(
+      result.error,
+      result.status === 401 ? "unauthorized" : "http",
+    );
+  }
   return success("opencode-go", parseOpenCodeGoUsage(result));
 }
 
@@ -563,7 +575,12 @@ export async function fetchCommandCodeQuotas(
   }
 
   const result = await queryCommandCodeQuota({ apiKey }, signal);
-  if (!result.success) return failure(result.error, "http");
+  if (!result.success) {
+    return failure(
+      result.error,
+      result.status === 401 ? "unauthorized" : "http",
+    );
+  }
   return success("commandcode", parseCommandCodeUsage(result.quota));
 }
 

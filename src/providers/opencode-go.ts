@@ -15,7 +15,9 @@
  * - Pi auth entry: `pi /login opencode-go` (API-key credentials only; OAuth
  *   entries are left to Pi's resolved lookup)
  * - Config file: ~/.config/opencode/opencode-quota/opencode-go.json
- * - OpenCode CLI auth: ~/.local/share/opencode/auth.json
+ *
+ * The OpenCode CLI's own credential store is not read: it is a
+ * multi-provider store owned by another application.
  */
 
 const USAGE_URL = "https://opencode.ai/zen/go/v1/usage";
@@ -40,6 +42,8 @@ export interface OpenCodeGoQuotaResult {
 export interface OpenCodeGoQuotaError {
   success: false;
   error: string;
+  /** HTTP status of the failed usage request, when there was one. */
+  status?: number;
 }
 
 export type OpenCodeGoResult = OpenCodeGoQuotaResult | OpenCodeGoQuotaError;
@@ -108,8 +112,33 @@ export function parseOpenCodeGoApiUsage(
   };
 }
 
+/**
+ * Pull the API's own error code out of a JSON error body.
+ *
+ * The usage API distinguishes an expired key (`api_key_expired`) from other
+ * rejections, and says so explicitly: "Signing in again will not renew this
+ * key." Telling the user to run `pi /login` for an expired key sends them
+ * down the wrong path, so the API's reason is preserved.
+ */
+function parseApiErrorCode(body: string): string | undefined {
+  try {
+    const parsed = JSON.parse(body) as { error?: { code?: unknown } };
+    const code = parsed?.error?.code;
+    return typeof code === "string" ? code : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function errorForStatus(status: number, body: string): string {
   if (status === 401) {
+    if (parseApiErrorCode(body) === "api_key_expired") {
+      return (
+        "OpenCode Go API key expired (401). Create a new key in the OpenCode" +
+        " Console, then replace it in your client or secret store. Signing in" +
+        " again will not renew it."
+      );
+    }
     return (
       "OpenCode Go API key rejected (401). Run `pi /login opencode-go`," +
       " or set OPENCODE_GO_API_KEY"
@@ -141,7 +170,11 @@ export async function queryOpenCodeGoQuota(
 
     if (!response.ok) {
       const text = await response.text().catch(() => "");
-      return { success: false, error: errorForStatus(response.status, text) };
+      return {
+        success: false,
+        error: errorForStatus(response.status, text),
+        status: response.status,
+      };
     }
 
     const payload = (await response.json().catch(() => null)) as unknown;

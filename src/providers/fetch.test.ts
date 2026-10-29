@@ -304,7 +304,9 @@ describe("fetchOpenRouterQuotasWithToken", () => {
     }
   });
 
-  it("handles HTTP error", async () => {
+  it("reports a rejected credential as unauthorized, not an HTTP outage", async () => {
+    // A rejected credential is a credential problem, like an expired OAuth
+    // token, so it is hidden from the combined dashboard.
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response("Unauthorized", { status: 401 }),
     ) as any;
@@ -312,7 +314,7 @@ describe("fetchOpenRouterQuotasWithToken", () => {
     const result = await fetchOpenRouterQuotasWithToken("bad-key");
     expect(result).toMatchObject({
       success: false,
-      error: { kind: "http" },
+      error: { kind: "unauthorized" },
     });
   });
 
@@ -327,7 +329,7 @@ describe("fetchOpenRouterQuotasWithToken", () => {
     ) as any;
 
     const result = await fetchOpenRouterQuotasWithToken("bad-key");
-    expect(result).toMatchObject({ success: false, error: { kind: "http" } });
+    expect(result).toMatchObject({ success: false, error: { kind: "unauthorized" } });
     if (!result.success) {
       expect(result.error.message).toBe("invalid x-api-key");
       expect(result.error.message).not.toContain("{");
@@ -492,7 +494,7 @@ describe("fetchXaiQuotasWithToken", () => {
     );
   });
 
-  it("reports Grok billing HTTP failures", async () => {
+  it("reports Grok billing credential failures", async () => {
     globalThis.fetch = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ message: "token rejected" }), {
         status: 401,
@@ -503,7 +505,7 @@ describe("fetchXaiQuotasWithToken", () => {
 
     expect(result).toMatchObject({
       success: false,
-      error: { kind: "http", message: "token rejected" },
+      error: { kind: "unauthorized", message: "token rejected" },
     });
   });
 });
@@ -781,6 +783,40 @@ describe("fetchOpenCodeGoQuotas", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it("reports a rejected credential as unauthorized, not a provider outage", async () => {
+    // A 401 means the stored key cannot authenticate, so the provider has no
+    // usage to report. Classifying it as "unauthorized" keeps it out of the
+    // combined dashboard instead of nagging about a provider the user may not
+    // even be using.
+    await stubEmptyHome();
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            type: "authentication_error",
+            code: "api_key_expired",
+            message: "This API key has expired.",
+          },
+        }),
+        { status: 401 },
+      ),
+    ) as unknown as typeof fetch;
+
+    const result = await fetchOpenCodeGoQuotas(
+      inMemoryAuthStorage({ "opencode-go": { apiKey: "sk-expired" } }),
+    );
+
+    expect(result).toMatchObject({
+      success: false,
+      error: { kind: "unauthorized" },
+    });
+    if (result.success) throw new Error("expected failure");
+    // The API says signing in again will not renew an expired key, so the
+    // message must not send the user down that path.
+    expect(result.error.message).toContain("expired");
+    expect(result.error.message).toContain("OpenCode Console");
+  });
+
   it("prefers OPENCODE_GO_API_KEY over credential files", async () => {
     const home = await stubEmptyHome();
     await mkdir(join(home, ".config", "opencode", "opencode-quota"), { recursive: true });
@@ -913,11 +949,11 @@ describe("fetchOpenCodeGoQuotas", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it("does not leak OpenCode CLI auth-file contents in a config error", async () => {
+  it("does not leak config-file contents in a config error", async () => {
     const home = await stubEmptyHome();
-    await mkdir(join(home, ".local", "share", "opencode"), { recursive: true });
+    await mkdir(join(home, ".config", "opencode", "opencode-quota"), { recursive: true });
     await writeFile(
-      join(home, ".local", "share", "opencode", "auth.json"),
+      join(home, ".config", "opencode", "opencode-quota", "opencode-go.json"),
       "{ not json sk-secret-leak",
     );
 
@@ -944,22 +980,22 @@ describe("fetchOpenCodeGoQuotas", () => {
     expect(result.error.message).toContain("no longer supported");
   });
 
-  it("reads the OpenCode CLI auth.json as a fallback", async () => {
+  it("does not read the OpenCode CLI credential store", async () => {
+    // That file is a multi-provider credential store owned by another
+    // application. Reading it would make pi-usage report on a provider the
+    // user never configured for Pi.
     const home = await stubEmptyHome();
     await mkdir(join(home, ".local", "share", "opencode"), { recursive: true });
     await writeFile(
       join(home, ".local", "share", "opencode", "auth.json"),
       JSON.stringify({ "opencode-go": { type: "api_key", key: "sk-cli" } }),
     );
-    globalThis.fetch = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ usage: { rolling: { percent: 2 } } }), { status: 200 }),
-    ) as unknown as typeof fetch;
+    const fetchSpy = vi.fn();
+    globalThis.fetch = fetchSpy as unknown as typeof fetch;
 
     const result = await fetchOpenCodeGoQuotas(inMemoryAuthStorage());
 
-    expect(result).toMatchObject({ success: true });
-    const [, init] = (globalThis.fetch as unknown as ReturnType<typeof vi.fn>).mock
-      .calls[0] as [string, RequestInit];
-    expect((init.headers as Record<string, string>).Authorization).toBe("Bearer sk-cli");
+    expect(result).toMatchObject({ success: false, error: { kind: "config" } });
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });

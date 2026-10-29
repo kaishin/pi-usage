@@ -71,4 +71,18 @@ describe("filterDashboardSnapshots", () => {
       expect(filterDashboardSnapshots([snapshot])).toEqual([snapshot]);
     },
   );
+
+  it("hides a provider whose credential was rejected", () => {
+    // A rejected credential means the provider cannot report usage. Showing
+    // it as a dashboard row nags the user about a provider they may not even
+    // be using; the per-provider command still reports the failure.
+    const snapshots = [
+      {
+        provider: "opencode-go" as const,
+        result: failure("API key expired (401)", "unauthorized"),
+      },
+    ];
+
+    expect(filterDashboardSnapshots(snapshots)).toEqual([]);
+  });
 });
