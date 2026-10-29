@@ -47,11 +47,12 @@ function providerConfigPaths(provider: SupportedQuotaProvider): string[] {
   const home = homedir();
   switch (provider) {
     case "opencode-go":
+      // Only pi-usage's own config files. The OpenCode CLI's auth.json is a
+      // multi-provider credential store owned by another application, so its
+      // presence must not make this provider look configured.
       return [
         join(home, ".config", "opencode", "opencode-quota", "opencode-go.json"),
         join(home, ".config", "opencode-go", "config.json"),
-        join(home, ".local", "share", "opencode", "auth.json"),
-        join(home, ".config", "opencode", "auth.json"),
       ];
     case "openai-codex":
       return [join(home, ".codex", "auth.json")];

@@ -104,7 +104,7 @@ describe("isProviderConfigured", () => {
     expect(
       isProviderConfigured("opencode-go", {
         ...EMPTY,
-        fileExists: (path) => path.endsWith("opencode/auth.json"),
+        fileExists: (path) => path.endsWith("opencode-go.json"),
       }),
     ).toBe(true);
     expect(
@@ -128,6 +128,17 @@ describe("isProviderConfigured", () => {
       isProviderConfigured("opencode-go", {
         ...EMPTY,
         env: { OPENCODE_GO_WORKSPACE_ID: "wrk_1" } as NodeJS.ProcessEnv,
+      }),
+    ).toBe(false);
+  });
+
+  it("does not treat the OpenCode CLI credential store as a credential", () => {
+    // The CLI's auth.json is a multi-provider store owned by another
+    // application. Its presence must not make opencode-go look configured.
+    expect(
+      isProviderConfigured("opencode-go", {
+        ...EMPTY,
+        fileExists: (path) => path.endsWith("opencode/auth.json"),
       }),
     ).toBe(false);
   });

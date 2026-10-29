@@ -65,7 +65,7 @@ export interface CommandCodeQueryConfig {
 
 export type CommandCodeResult =
   | { success: true; quota: CommandCodeQuota }
-  | { success: false; error: string };
+  | { success: false; error: string; status?: number };
 
 type RequestOutcome =
   | { kind: "ok"; data: unknown }
@@ -311,6 +311,7 @@ export async function queryCommandCodeQuota(
       return {
         success: false,
         error: errorForStatus(whoami.status, whoami.body, "whoami", config.apiKey),
+        status: whoami.status,
       };
     }
 
@@ -333,6 +334,7 @@ export async function queryCommandCodeQuota(
         return {
           success: false,
           error: errorForStatus(outcome.status, outcome.body, "billing", config.apiKey),
+          status: outcome.status,
         };
       }
     }
@@ -356,6 +358,7 @@ export async function queryCommandCodeQuota(
           "usage summary",
           config.apiKey,
         ),
+        status: summaryOutcome.status,
       };
     }
     const summary = summaryOutcome.kind === "ok" ? parseSummary(summaryOutcome.data) : null;

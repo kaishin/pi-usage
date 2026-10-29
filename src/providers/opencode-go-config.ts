@@ -7,13 +7,20 @@ export type ResolvedOpenCodeGoApiKey =
   | { state: "none" }
   | { state: "invalid"; source: string; error: string };
 
+/**
+ * Config files that may hold an OpenCode Go API key.
+ *
+ * Only pi-usage's own config files and pi's own credential store are read.
+ * The OpenCode CLI's `~/.local/share/opencode/auth.json` is deliberately not
+ * a source: it is a multi-provider credential store owned by another
+ * application, so a stale key there would make pi-usage report on a
+ * provider the user never configured for Pi.
+ */
 function getApiKeyCandidatePaths(): string[] {
   const home = homedir();
   return [
     join(home, ".config", "opencode", "opencode-quota", "opencode-go.json"),
     join(home, ".config", "opencode-go", "config.json"),
-    join(home, ".local", "share", "opencode", "auth.json"),
-    join(home, ".config", "opencode", "auth.json"),
   ];
 }
 
@@ -45,14 +52,13 @@ async function readJson(
     }
     return { state: "loaded", data: parsed as Record<string, unknown> };
   } catch {
-    // Never surface raw parser diagnostics. This path reads the OpenCode CLI
-    // auth.json, which holds credentials for several providers, and a
-    // JSON.parse error can quote the offending input.
+    // Never surface raw parser diagnostics. A JSON.parse error can quote the
+    // offending input, which may hold a credential.
     return { state: "invalid", error: "Config file is not valid JSON" };
   }
 }
 
-/** Extract an API key from a quota config file or an OpenCode auth.json. */
+/** Extract an API key from a pi-usage OpenCode Go config file. */
 export function apiKeyFromConfigData(
   data: Record<string, unknown>,
 ): { apiKey: string } | { legacy: true } | null {

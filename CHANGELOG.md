@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Removed
+- **The OpenCode CLI credential store is no longer read**: pi-usage no longer looks for an OpenCode Go key in `~/.local/share/opencode/auth.json`. That file is a multi-provider credential store owned by another application, so a stale key in it made pi-usage report on a provider the user never configured for Pi. Configure OpenCode Go with `pi /login opencode-go`, `OPENCODE_GO_API_KEY` / `OPENCODE_API_KEY`, or `~/.config/opencode/opencode-quota/opencode-go.json` instead.
+
+### Fixed
+- **Rejected credentials no longer nag from the combined dashboard**: a provider whose key is refused (HTTP 401) is treated as a credential problem, not a provider outage, so `/usage` no longer shows a warning row for a provider you may not even be using. The per-provider commands still report the failure.
+- **Expired OpenCode Go keys report the real cause**: the usage API distinguishes an expired key from other rejections and states that signing in again will not renew it. The dashboard now says so instead of pointing at `pi /login`, which cannot fix an expired key.
+
 ## [2.3.1] - 2026-10-25
 
 ### Fixed

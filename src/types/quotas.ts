@@ -18,6 +18,10 @@ export type QuotasErrorKind =
   | "config"
   | "http"
   | "network"
+  // The provider rejected the credential (HTTP 401). The credential exists but
+  // cannot authenticate, so there is no usage to report. Consumers should
+  // treat it like a credential problem rather than a provider outage.
+  | "unauthorized"
   // The provider is not applicable for the stored credential type
   // (e.g. a direct Anthropic API key has no OAuth subscription usage to
   // report). Consumers should render this silently rather than as a warning.

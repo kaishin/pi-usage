@@ -145,6 +145,31 @@ describe("queryOpenCodeGoQuota", () => {
     expect(result.error).toContain("pi /login opencode-go");
   });
 
+  it("reports an expired key without telling the user to sign in again", async () => {
+    // The API says signing in again will not renew an expired key, so the
+    // message must point at creating a new key instead.
+    globalThis.fetch = vi.fn().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          error: {
+            type: "authentication_error",
+            code: "api_key_expired",
+            message: "This API key has expired.",
+          },
+        }),
+        { status: 401 },
+      ),
+    ) as unknown as typeof fetch;
+
+    const result = await queryOpenCodeGoQuota({ apiKey: "sk-expired" });
+
+    expect(result).toMatchObject({ success: false, status: 401 });
+    if (result.success) throw new Error("expected failure");
+    expect(result.error).toContain("expired");
+    expect(result.error).toContain("OpenCode Console");
+    expect(result.error).not.toContain("pi /login");
+  });
+
   it("reports a missing Go subscription", async () => {
     globalThis.fetch = vi
       .fn()
