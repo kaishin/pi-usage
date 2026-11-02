@@ -4,6 +4,9 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+- **Token-status no longer crashes Pi after session replacement**: a refresh that was still running when `/new`, `/fork`, `/resume` or a reload invalidated the session ctx read that ctx again and threw an uncaught "extension ctx is stale" error. The refresher now detects the stale ctx, stops itself and clears the status instead.
+
 ## [2.4.0] - 2026-10-29
 
 ### Removed

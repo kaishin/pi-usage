@@ -29,25 +29,14 @@ import {
   type RiskSeverity,
 } from "../../utils/quotas-severity.js";
 import type { QuotaWindow } from "../../types/quotas.js";
+import {
+  getContextProvider,
+  isStaleContextError,
+} from "../../lib/stale-context.js";
 import { formatWindowStatus, type WindowStatus } from "./format-status.js";
 
 const EXTENSION_ID = "pi-usage";
 const REFRESH_INTERVAL_MS = 60_000;
-const STALE_CONTEXT_MESSAGE = "This extension ctx is stale";
-
-function isStaleContextError(error: unknown): boolean {
-  return error instanceof Error && error.message.includes(STALE_CONTEXT_MESSAGE);
-}
-
-function getContextProvider(ctx: ExtensionContext | undefined): string | undefined {
-  if (!ctx) return undefined;
-  try {
-    return ctx.model?.provider;
-  } catch (error) {
-    if (isStaleContextError(error)) return undefined;
-    throw error;
-  }
-}
 
 function formatFooterResetTime(resetsAt: string): string {
   const remaining = formatTimeRemaining(new Date(resetsAt));

@@ -11,6 +11,10 @@ import {
   configLoader,
 } from "../../config.js";
 import { aggregateAllSessions, formatCost } from "../../lib/session-tokens.js";
+import {
+  getContextProvider,
+  isStaleContextError,
+} from "../../lib/stale-context.js";
 
 const EXTENSION_ID = "pi-usage-token-status";
 const REFRESH_INTERVAL_MS = 60_000;
@@ -104,29 +108,64 @@ function createTokenStatusRefresher() {
   let inFlight = false;
   let queued = false;
 
-  async function update(ctx: ExtensionContext): Promise<void> {
-    if (!ctx.hasUI) return;
+  // Bumped whenever the active ctx is replaced or the refresher stops. A
+  // refresh spans three session-log aggregations, so without it an old fetch
+  // could write into the session that replaced it.
+  let generation = 0;
+
+  function deactivate(): void {
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = undefined;
+    activeContext = undefined;
+    lastCosts = undefined;
+    queued = false;
+    generation++;
+  }
+
+  function setStatusSafely(
+    ctx: ExtensionContext | undefined,
+    render: (ctx: ExtensionContext) => string | undefined,
+  ): boolean {
+    if (!ctx) return false;
+    try {
+      if (!ctx.hasUI) return true;
+      ctx.ui.setStatus(EXTENSION_ID, render(ctx));
+      return true;
+    } catch (error) {
+      if (isStaleContextError(error) && activeContext === ctx) deactivate();
+      return false;
+    }
+  }
+
+  async function update(
+    ctx: ExtensionContext,
+    requestGeneration = generation,
+  ): Promise<void> {
     if (inFlight) {
       queued = true;
       return;
     }
     inFlight = true;
     try {
-      const costs = await computeRollingCosts(ctx.cwd);
+      if (requestGeneration !== generation || activeContext !== ctx) return;
       if (!ctx.hasUI) return;
+      const costs = await computeRollingCosts(ctx.cwd);
+      if (requestGeneration !== generation || activeContext !== ctx) return;
       lastCosts = costs;
-      const status = formatTokenStatus(ctx.ui.theme, costs);
-      ctx.ui.setStatus(EXTENSION_ID, status);
-    } catch {
-      ctx.ui.setStatus(
-        EXTENSION_ID,
-        ctx.ui.theme.fg("warning", "token tracking unavailable"),
+      setStatusSafely(ctx, ({ ui }) => formatTokenStatus(ui.theme, costs));
+    } catch (error) {
+      if (isStaleContextError(error)) {
+        if (activeContext === ctx) deactivate();
+        return;
+      }
+      setStatusSafely(ctx, ({ ui }) =>
+        ui.theme.fg("warning", "token tracking unavailable"),
       );
     } finally {
       inFlight = false;
-      if (queued) {
+      if (queued && activeContext) {
         queued = false;
-        void update(ctx);
+        void update(activeContext, generation).catch(() => undefined);
       }
     }
   }
@@ -134,33 +173,33 @@ function createTokenStatusRefresher() {
   return {
     async refreshFor(ctx: ExtensionContext): Promise<void> {
       activeContext = ctx;
-      if (!isGoProvider(ctx.model?.provider)) {
-        ctx.ui.setStatus(EXTENSION_ID, undefined);
+      generation++;
+      const requestGeneration = generation;
+      if (!isGoProvider(getContextProvider(ctx))) {
+        setStatusSafely(ctx, () => undefined);
         return;
       }
-      await update(ctx);
+      await update(ctx, requestGeneration);
     },
     start(): void {
       if (refreshTimer) clearInterval(refreshTimer);
       refreshTimer = setInterval(() => {
-        if (activeContext) void update(activeContext);
+        if (activeContext) {
+          void update(activeContext, generation).catch(() => undefined);
+        }
       }, REFRESH_INTERVAL_MS);
       refreshTimer.unref?.();
     },
     stop(ctx?: ExtensionContext): void {
-      if (refreshTimer) clearInterval(refreshTimer);
-      refreshTimer = undefined;
-      activeContext = undefined;
-      lastCosts = undefined;
-      ctx?.ui.setStatus(EXTENSION_ID, undefined);
+      deactivate();
+      setStatusSafely(ctx, () => undefined);
     },
     renderLast(ctx: ExtensionContext): boolean {
-      if (!lastCosts || !ctx.hasUI) return false;
-      ctx.ui.setStatus(
-        EXTENSION_ID,
-        formatTokenStatus(ctx.ui.theme, lastCosts),
+      if (!lastCosts) return false;
+      const costs = lastCosts;
+      return setStatusSafely(ctx, ({ ui }) =>
+        formatTokenStatus(ui.theme, costs),
       );
-      return true;
     },
   };
 }
@@ -172,13 +211,7 @@ export default async function (pi: ExtensionAPI) {
   let currentContext: ExtensionContext | undefined;
 
   function scheduleRefresh(ctx: ExtensionContext): void {
-    void refresher.refreshFor(ctx).catch(() => {
-      if (ctx.hasUI)
-        ctx.ui.setStatus(
-          EXTENSION_ID,
-          ctx.ui.theme.fg("warning", "token tracking unavailable"),
-        );
-    });
+    void refresher.refreshFor(ctx).catch(() => undefined);
   }
 
   pi.events.on(USAGE_CONFIG_UPDATED_EVENT, (data: unknown) => {
@@ -191,7 +224,7 @@ export default async function (pi: ExtensionAPI) {
     // Same guard as session_start: enabling token-status from /usage:settings
     // must not start the Go rolling-cost refresher for a non-Go provider.
     if (currentContext) {
-      if (!isGoProvider(currentContext.model?.provider)) {
+      if (!isGoProvider(getContextProvider(currentContext))) {
         refresher.stop(currentContext);
         return;
       }
@@ -203,8 +236,8 @@ export default async function (pi: ExtensionAPI) {
   pi.on("session_start", (_event, ctx) => {
     currentContext = ctx;
     if (!enabled) return;
-    if (!isGoProvider(ctx.model?.provider)) {
-      ctx.ui.setStatus(EXTENSION_ID, undefined);
+    if (!isGoProvider(getContextProvider(ctx))) {
+      refresher.stop(ctx);
       return;
     }
     refresher.start();
@@ -214,7 +247,7 @@ export default async function (pi: ExtensionAPI) {
   pi.on("turn_end", (_event, ctx) => {
     currentContext = ctx;
     if (!enabled) return;
-    if (!isGoProvider(ctx.model?.provider)) return;
+    if (!isGoProvider(getContextProvider(ctx))) return;
     scheduleRefresh(ctx);
   });
 
@@ -224,7 +257,7 @@ export default async function (pi: ExtensionAPI) {
       refresher.stop(ctx);
       return;
     }
-    if (!isGoProvider(ctx.model?.provider)) {
+    if (!isGoProvider(getContextProvider(ctx))) {
       refresher.stop(ctx);
       return;
     }
