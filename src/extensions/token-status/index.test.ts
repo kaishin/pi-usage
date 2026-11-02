@@ -135,4 +135,55 @@ describe("token-status config updates", () => {
     expect(statusCalls.length).toBeGreaterThan(0);
     expect(statusCalls.every(([, value]) => value === undefined)).toBe(true);
   });
+
+  it("stops refreshing when the session is replaced mid-refresh", async () => {
+    // A refresh spans three session-log aggregations, so /new, /fork or a
+    // reload can invalidate the ctx before it finishes. Pi then throws on any
+    // read of that ctx, including `hasUI`, which used to escape as an
+    // uncaught exception ("This extension ctx is stale").
+    vi.useFakeTimers();
+    const rejections: unknown[] = [];
+    const onRejection = (reason: unknown) => rejections.push(reason);
+    process.on("unhandledRejection", onRejection);
+
+    let settleCosts: () => void = () => {};
+    vi.mocked(aggregateAllSessions).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          settleCosts = () =>
+            resolve({ totals: { costTotal: 1.5 }, entries: [] } as never);
+        }),
+    );
+
+    const { pi, emitExtensionEvent } = createFakePi();
+    const { ctx, setStatus } = createContext("opencode-go");
+
+    let stale = false;
+    Object.defineProperty(ctx, "hasUI", {
+      get() {
+        if (stale)
+          throw new Error(
+            "This extension ctx is stale after session replacement or reload.",
+          );
+        return true;
+      },
+    });
+
+    await tokenStatusExtension(pi);
+    await emitExtensionEvent("session_start", ctx);
+    setStatus.mockClear();
+
+    // Replace the session, then let the pending refresh resolve.
+    stale = true;
+    settleCosts();
+    await vi.advanceTimersByTimeAsync(0);
+
+    expect(rejections).toEqual([]);
+    expect(setStatus).not.toHaveBeenCalled();
+
+    // The stale ctx must also stop the interval, or it throws every minute.
+    await vi.advanceTimersByTimeAsync(60_000);
+    process.off("unhandledRejection", onRejection);
+    expect(rejections).toEqual([]);
+  });
 });
